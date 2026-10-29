@@ -27,17 +27,29 @@ jobs:
       - name: XcodeGen
         run: brew install xcodegen && cd ios && xcodegen generate
 
+      - name: Build (compile check, no signing)
+        run: |
+          set -o pipefail
+          cd ios
+          xcodebuild -project BoxNo.xcodeproj -scheme BoxNo -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | xcpretty
+
       - name: App Store Connect key
+        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$APP_STORE_CONNECT_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
 
       - name: Build number
+        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           cd ios && sed -i '' "s/CURRENT_PROJECT_VERSION: \"[0-9]*\"/CURRENT_PROJECT_VERSION: \"${{ github.run_number }}\"/" project.yml && xcodegen generate
 
       - name: Archive
+        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
+          set -o pipefail
           cd ios
           xcodebuild -project BoxNo.xcodeproj -scheme BoxNo -configuration Release \
             -destination 'generic/platform=iOS' -archivePath build/BoxNo.xcarchive \
@@ -45,9 +57,10 @@ jobs:
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8 \
             -authenticationKeyID "$APP_STORE_CONNECT_API_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_API_ISSUER_ID" \
-            archive | xcpretty || exit ${PIPESTATUS[0]}
+            archive | xcpretty
 
       - name: Export & upload
+        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           cd ios
           cat > ExportOptions.plist <<EOF
