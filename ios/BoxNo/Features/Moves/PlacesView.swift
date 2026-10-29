@@ -11,7 +11,7 @@ struct PlacesView: View {
     @State private var creating = false
 
     enum Tab: String, CaseIterable { case places = "Места", items = "Все вещи" }
-    struct PlaceRef: Identifiable { let id: UUID }
+    struct PlaceRef: Identifiable, Hashable { let id: UUID }
 
     init(move: Move, destinations: [MoveDestination]) {
         _store = State(initialValue: PlacesStore(move: move, destinations: destinations))
