@@ -1,0 +1,33 @@
+name: BoxNo
+options:
+  bundleIdPrefix: co.boxnumber
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: ru
+  xcodeVersion: "16.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: 2P3PUF975G
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.30.0"
+targets:
+  BoxNo:
+    type: application
+    platform: iOS
+    sources: [BoxNo]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.boxnumber.app
+        INFOPLIST_FILE: BoxNo/Resources/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: BoxNo/Resources/BoxNo.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+    dependencies:
+      - package: Supabase
+        product: Supabase

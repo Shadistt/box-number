@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key><string>Box Nº</string>
+  <key>CFBundleName</key><string>BoxNo</string>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleDevelopmentRegion</key><string>ru</string>
+  <key>UILaunchScreen</key><dict/>
+  <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+  <key>NSCameraUsageDescription</key><string>Камера нужна, чтобы снимать вещи в коробках и номер на коробке.</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>Чтобы выбрать фото профиля из галереи.</string>
+  <key>NSContactsUsageDescription</key><string>Чтобы пригласить людей из контактов.</string>
+  <key>CFBundleURLTypes</key>
+  <array><dict>
+    <key>CFBundleURLSchemes</key><array><string>boxno</string></array>
+  </dict></array>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
+</dict>
+</plist>
