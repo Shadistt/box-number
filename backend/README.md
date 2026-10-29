@@ -20,7 +20,7 @@ supabase functions deploy photo-upload-url photo-view-url --project-ref zolpdtkh
 Нужные секреты (Project Settings → Edge Functions → Secrets):
 
 ```
-R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET=boxno-photos
+R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET=boxno-photos, R2_JURISDICTION=eu (бакет в EU → хост *.eu.r2.cloudflarestorage.com)
 ```
 
-Пока их нет, функции отвечают 500, а приложение хранит фото только локально.
+Заданы 30.10.2026. Без них функции отвечают 500, а приложение хранит фото только локально.

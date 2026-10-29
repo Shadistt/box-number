@@ -18,9 +18,10 @@ const r2 = new AwsClient({
 });
 
 function objectURL(key: string) {
-  return new URL(
-    `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com/${Deno.env.get("R2_BUCKET")}/${key}`,
-  );
+  // Бакет в юрисдикции EU → отдельный хост «<account>.eu.r2.cloudflarestorage.com»
+  const jur = Deno.env.get("R2_JURISDICTION") ?? "eu";
+  const host = `${Deno.env.get("R2_ACCOUNT_ID")}.${jur ? jur + "." : ""}r2.cloudflarestorage.com`;
+  return new URL(`https://${host}/${Deno.env.get("R2_BUCKET")}/${key}`);
 }
 
 /** Подписанная ссылка на PUT/GET объекта; expires — секунды. */
