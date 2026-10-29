@@ -22,16 +22,7 @@ struct MovesListView: View {
                 }
                 .padding(.bottom, 110)
             }
-            Button { showNew = true } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "plus").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.ink)
-                        .frame(width: 36, height: 36).background(Theme.accent, in: Circle())
-                    Text("Новый переезд").font(.system(size: 17, weight: .semibold))
-                }
-                .padding(.leading, 12).padding(.trailing, 26).frame(height: 58)
-                .background(Theme.ink, in: Capsule()).foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
-            }
+            FAB(title: "Новый переезд") { showNew = true }
             .padding(.bottom, 20)
         }
         .task { await store.load() }

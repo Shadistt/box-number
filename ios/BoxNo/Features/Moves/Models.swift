@@ -21,16 +21,50 @@ struct MoveDestination: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey { case id, name, position, moveId = "move_id" }
 }
 
+enum PlaceStatus: String, Codable { case open, packed, unpacking }
+
 struct Place: Codable, Identifiable, Hashable {
     var id: UUID
     var moveId: UUID
     var number: String
     var title: String
-    var kind: String
+    var kind: PlaceKind
+    var customKind: String?
     var destinationId: UUID?
-    var status: String
-    enum CodingKeys: String, CodingKey { case id, number, title, kind, status
-        case moveId = "move_id", destinationId = "destination_id" }
+    var status: PlaceStatus
+    var packedAt: Date?
+    var unpackedAt: Date?
+    var numberPhoto: String?
+    var shared: Bool
+    var createdAt: Date
+    enum CodingKeys: String, CodingKey { case id, number, title, kind, status, shared
+        case moveId = "move_id", customKind = "custom_kind", destinationId = "destination_id"
+        case packedAt = "packed_at", unpackedAt = "unpacked_at", numberPhoto = "number_photo", createdAt = "created_at" }
+
+    static let columns = "id,move_id,number,title,kind,custom_kind,destination_id,status,packed_at,unpacked_at,number_photo,shared,created_at"
+
+    /// «Коробка № 19», «Свой вариант: Велосипед»
+    var kindTitle: String { kind == .custom ? (customKind ?? "Свой вариант") : kind.title }
+    var displayTitle: String { title.isEmpty ? "\(kind.title) без названия" : title }
+}
+
+enum CaptionSource: String, Codable { case ai, user }
+
+struct Item: Codable, Identifiable, Hashable {
+    var id: UUID
+    var placeId: UUID
+    var title: String
+    var captionSource: CaptionSource
+    var photo: String?
+    var thumb: String?
+    var takenAt: Date?
+    var position: Int
+    var createdAt: Date
+    enum CodingKeys: String, CodingKey { case id, title, photo, thumb, position
+        case placeId = "place_id", captionSource = "caption_source", takenAt = "taken_at", createdAt = "created_at" }
+
+    static let columns = "id,place_id,title,caption_source,photo,thumb,taken_at,position,created_at"
+    var isTaken: Bool { takenAt != nil }
 }
 
 extension Move {
@@ -38,5 +72,17 @@ extension Move {
         if let t = title, !t.isEmpty { return t }
         let first = destinations.sorted { $0.position < $1.position }.first?.name ?? ""
         return fromCity.isEmpty ? first : "\(fromCity) → \(first)"
+    }
+}
+
+/// Склонение «1 вещь / 2 вещи / 5 вещей», «мест».
+enum Plural {
+    static func things(_ n: Int) -> String { "\(n) " + form(n, "вещь", "вещи", "вещей") }
+    static func places(_ n: Int) -> String { "\(n) " + form(n, "место", "места", "мест") }
+    static func form(_ n: Int, _ one: String, _ few: String, _ many: String) -> String {
+        let m10 = n % 10, m100 = n % 100
+        if m10 == 1 && m100 != 11 { return one }
+        if (2...4).contains(m10) && !(12...14).contains(m100) { return few }
+        return many
     }
 }

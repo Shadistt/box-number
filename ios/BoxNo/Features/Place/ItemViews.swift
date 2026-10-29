@@ -1,0 +1,183 @@
+import SwiftUI
+
+/// Превью вещи: локальный файл или подписанная ссылка R2.
+struct ItemThumb: View {
+    let item: Item
+    var size: CGFloat? = nil
+    var full = false
+    @State private var image: UIImage? = nil
+
+    var body: some View {
+        Color.clear
+            .frame(width: size, height: size)
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    ZStack {
+                        Color(hex: 0xE8E6E0)
+                        Image(systemName: "photo").foregroundStyle(Theme.muted)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: size.map { $0 * 0.25 } ?? 16))
+        .task(id: item.id) { image = await PhotoStore.image(for: item, thumb: !full) }
+    }
+}
+
+/// Плитка вещи в сетке «Фото».
+struct ItemCell: View {
+    let item: Item
+    let status: PlaceStatus
+    let onMinus: () -> Void
+    let onTake: () -> Void
+    let onTap: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .topLeading) {
+                Button(action: onTap) { ItemThumb(item: item) }.buttonStyle(.plain)
+                    .opacity(item.isTaken ? 0.45 : 1)
+                if status == .open {
+                    Button(action: onMinus) {
+                        Image(systemName: "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                            .frame(width: 26, height: 26).background(.black.opacity(0.55), in: Circle())
+                    }.padding(6)
+                } else if status == .unpacking {
+                    Button(action: onTake) {
+                        Text(item.isTaken ? "Вернуть" : "Достал(а)").font(.system(size: 12, weight: .bold))
+                            .padding(.horizontal, 10).frame(height: 28)
+                            .background(item.isTaken ? Theme.bg : Theme.accent, in: Capsule()).foregroundStyle(Theme.ink)
+                    }.padding(6)
+                }
+            }
+            Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+                .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
+        }
+    }
+}
+
+/// Строка вещи в режиме «Список».
+struct ItemRow: View {
+    let item: Item
+    let status: PlaceStatus
+    let onMinus: () -> Void
+    let onTake: () -> Void
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onTap) { ItemThumb(item: item, size: 48) }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                    .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
+                if let t = item.takenAt { Text("Достали " + t.formatted(.dateTime.day().month())).font(.caption).foregroundStyle(Theme.muted) }
+                else if item.captionSource == .ai { Text("AI-подпись").font(.caption).foregroundStyle(Theme.muted) }
+            }
+            Spacer()
+            if status == .open {
+                Button(action: onMinus) { Image(systemName: "minus.circle").font(.title3).foregroundStyle(Theme.muted) }
+            } else if status == .unpacking {
+                Button(action: onTake) {
+                    Text(item.isTaken ? "Вернуть" : "Достал(а)").font(.system(size: 13, weight: .bold))
+                        .padding(.horizontal, 12).frame(height: 32)
+                        .background(item.isTaken ? Theme.bg : Theme.accent, in: Capsule()).foregroundStyle(Theme.ink)
+                }
+            }
+        }
+        .padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+/// Карточка вещи: фото, подпись, переложить, удалить.
+struct ItemCardView: View {
+    let store: PlacesStore
+    let item: Item
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var showMove = false
+    @State private var confirmDelete = false
+
+    private var place: Place? { store.place(item.placeId) }
+    private var editable: Bool { place?.status == .open }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    ItemThumb(item: item, full: true).frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("ПОДПИСЬ").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        TextField("Что это", text: $title, axis: .vertical).font(.system(size: 18, weight: .semibold))
+                            .padding(14).background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+                            .disabled(!editable)
+                            .onSubmit(save)
+                        if item.captionSource == .ai { Text("Подпись предложена автоматически — исправьте, если неточно.").font(.caption).foregroundStyle(Theme.muted) }
+                    }
+                    if let place {
+                        Text("Лежит в: \(place.kind.numberLabel) № \(place.number) · \(place.displayTitle)").font(.subheadline).foregroundStyle(Theme.muted)
+                    }
+                    if editable {
+                        Button { showMove = true } label: { Label("Переложить в другое место", systemImage: "arrow.right.square") }
+                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
+                        Button(role: .destructive) { confirmDelete = true } label: { Label("Удалить вещь", systemImage: "trash") }
+                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
+                    } else {
+                        Text("Место запаковано — редактировать нельзя.").font(.footnote).foregroundStyle(Theme.muted)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Theme.bg)
+            .navigationTitle("Вещь").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Готово") { save(); dismiss() } }
+            }
+            .onAppear { title = item.title }
+            .confirmationDialog("Удалить вещь?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Удалить", role: .destructive) { Task { try? await store.deleteItem(item.id); dismiss() } }
+            }
+            .sheet(isPresented: $showMove) {
+                MoveItemView(store: store, item: item) { dismiss() }
+            }
+        }
+    }
+
+    private func save() {
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard editable, !t.isEmpty, t != item.title else { return }
+        Task { try? await store.updateItem(item.id, title: t, source: .user) }
+    }
+}
+
+/// «Переложить»: выбор другого открытого места этого переезда.
+struct MoveItemView: View {
+    let store: PlacesStore
+    let item: Item
+    let onDone: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(store.places.filter { $0.id != item.placeId }) { p in
+                    Button {
+                        Task { try? await store.updateItem(item.id, placeId: p.id); dismiss(); onDone() }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: p.kind.symbol)
+                            VStack(alignment: .leading) {
+                                Text("№ \(p.number) · \(p.displayTitle)").foregroundStyle(p.status == .open ? Theme.ink : Theme.muted)
+                                Text(p.status == .open ? Plural.things(store.items(of: p.id).count) : "Запаковано").font(.caption).foregroundStyle(Theme.muted)
+                            }
+                        }
+                    }
+                    .disabled(p.status != .open)
+                }
+            }
+            .navigationTitle("Переложить в").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } } }
+        }
+    }
+}
