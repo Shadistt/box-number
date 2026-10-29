@@ -4,6 +4,10 @@
 <dict>
   <key>CFBundleDisplayName</key><string>Box Nº</string>
   <key>CFBundleName</key><string>BoxNo</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>LSRequiresIPhoneOS</key><true/>
+  <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
