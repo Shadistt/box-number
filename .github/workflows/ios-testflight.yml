@@ -21,8 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Xcode
-        run: xcodebuild -version && xcodebuild -showsdks | grep -i ios
+      - name: Xcode 26
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
+          xcodebuild -version && xcodebuild -showsdks | grep -i ios
 
       - name: XcodeGen
         run: brew install xcodegen && cd ios && xcodegen generate
