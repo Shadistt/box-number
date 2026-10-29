@@ -19,3 +19,14 @@ Swift 6 · SwiftUI · iOS 17+ · Supabase Swift SDK.
 - Места переезда: список (пока без создания).
 
 Дальше по `docs/tz-moves.md`: тип места, экран места с камерой и плашкой, вещи, доступ.
+
+## TestFlight
+
+Каждый push в `main`, который меняет `ios/`, собирает архив на GitHub Actions и отправляет его в TestFlight (`.github/workflows/ios-testflight.yml`). Номер сборки = номер запуска.
+
+Нужны секреты репозитория (Settings → Secrets and variables → Actions):
+- `ASC_KEY_ID` — Key ID ключа App Store Connect API
+- `ASC_ISSUER_ID` — Issuer ID
+- `ASC_KEY_P8` — содержимое файла `AuthKey_XXXX.p8`
+
+Подпись автоматическая: сертификат распространения и профиль Xcode создаёт сам через API-ключ.
