@@ -79,7 +79,6 @@ struct PlacesView: View {
             .padding(.horizontal, 16)
         }
         .scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
-        .environment(\.refresh, nil)
         .padding(.horizontal, -16).frame(height: 36)
     }
 
