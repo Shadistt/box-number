@@ -15,6 +15,8 @@ struct PlaceView: View {
     @State private var confirmDelete = false
     @State private var lockDialog: LockDialog? = nil
     @State private var visible = false
+    @State private var showPackCard = false
+    @State private var barTop: CGFloat = 0
     @State private var stopTask: Task<Void, Never>? = nil
     @State private var openItem: Item? = nil
     @State private var toast: String? = nil
@@ -68,8 +70,7 @@ struct PlaceView: View {
         .alert("Поделиться местом", isPresented: $showShare) { Button("Ок") {} } message: { Text("Ссылка и доступ — в следующей сборке.") }
         .confirmationDialog(lockTitle, isPresented: .init(get: { lockDialog != nil }, set: { if !$0 { lockDialog = nil } }), titleVisibility: .visible) {
             switch lockDialog {
-            case .pack:
-                Button("Запаковать") { setStatus(.packed, toast: "Запаковано") }
+            case .pack: EmptyView()
             case .packed:
                 Button("Открыть и доложить вещи") { setStatus(.open, toast: "Открыто — можно добавлять") }
                 Button("Начать распаковку") { setStatus(.unpacking, toast: "Распаковка началась") }
@@ -132,6 +133,9 @@ struct PlaceView: View {
                               onSelect: { d in Task { try? await store.updatePlace(placeId, destinationId: .some(d.id)) } },
                               onLock: { Task { await toggleLock(place) } })
                 .modifier(Shake(animatableData: shakes))
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: BarTopKey.self, value: g.frame(in: .named("placeScreen")).minY)
+                })
 
                 Picker("", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) } }.pickerStyle(.segmented)
 
@@ -169,6 +173,37 @@ struct PlaceView: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.interactively)
+        .coordinateSpace(name: "placeScreen")
+        .onPreferenceChange(BarTopKey.self) { barTop = $0 }
+        .overlay { if showPackCard { packCard(place) } }
+    }
+
+    /// Карточка «Запаковать?»: верхний край совпадает с верхом плашки, накрывает всё ниже.
+    private func packCard(_ p: Place) -> some View {
+        ZStack(alignment: .top) {
+            Color.black.opacity(0.18).ignoresSafeArea()
+                .onTapGesture { withAnimation(.snappy) { showPackCard = false } }
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Запаковать место № \(p.number)?").font(.system(size: 22, weight: .heavy))
+                Text("Всё, что происходит дальше — запаковали, открыли, достали вещь, — остаётся в истории с датой.")
+                    .font(.system(size: 16)).foregroundStyle(Color(hex: 0x4F5157)).lineSpacing(3)
+                Spacer(minLength: 0)
+                Button {
+                    withAnimation(.snappy) { showPackCard = false }
+                    setStatus(.packed, toast: "Запаковано")
+                } label: { Label("Запаковать", systemImage: "lock.fill") }
+                    .buttonStyle(PrimaryButtonStyle())
+                Button("Не сейчас") { withAnimation(.snappy) { showPackCard = false } }
+                    .buttonStyle(PrimaryButtonStyle(fill: Theme.bg, ink: Theme.ink))
+            }
+            .padding(20).padding(.bottom, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
+            .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
+            .padding(.top, max(0, barTop))
+            .ignoresSafeArea(edges: .bottom)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     /// Вариант Б: чипы «№ 3 · Папка · 1 вещь (· Общая)»
@@ -196,7 +231,7 @@ struct PlaceView: View {
                 withAnimation(.snappy) { barExpanded = true }
                 withAnimation(.linear(duration: 0.4)) { shakes += 1 }; return
             }
-            lockDialog = .pack
+            withAnimation(.snappy) { showPackCard = true }
         case .packed: lockDialog = .packed
         case .unpacking: lockDialog = .unpacking
         case .done: lockDialog = .done
@@ -244,4 +279,9 @@ struct Shake: GeometryEffect {
     func effectValue(size: CGSize) -> ProjectionTransform {
         ProjectionTransform(CGAffineTransform(translationX: 6 * sin(animatableData * .pi * 6), y: 0))
     }
+}
+
+struct BarTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
