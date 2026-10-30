@@ -1,0 +1,12 @@
+# TODO
+
+## Почта
+- [ ] Завести ящик **support@boxnumber.co** (Google Workspace / Zoho / iCloud Custom Domain — любой; нужны MX-записи на `boxnumber.co`). Пока обращения из «Поддержки» уходят на volodymyr.glukhota@gmail.com (секрет `SUPPORT_TO` у функции `support-ticket`) — после появления ящика вернуть `SUPPORT_TO=support@boxnumber.co`. (31.10.2026)
+- [ ] Проверить, что ответы на письма Auth (`noreply@mail.boxnumber.co`) не теряются: либо Reply-To на support@, либо «Receiving» в Resend.
+- [ ] DMARC для mail.boxnumber.co: через 2–3 недели ужесточить `p=none` → `p=quarantine`.
+
+## Дальше по ТЗ
+- [ ] §8 Поделиться местом, §9 Кто видит переезд / Семья (в настройках — заглушка).
+- [ ] §11а Личные эталоны распознавания (`item_prototypes`).
+- [ ] Чистка «сирот» в R2 при удалении вещей/мест (сейчас мягкое удаление, файлы остаются).
+- [ ] Офлайн-кеш мест и вещей (сейчас кешируется только главный экран).
