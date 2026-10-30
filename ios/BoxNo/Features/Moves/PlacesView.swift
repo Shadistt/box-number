@@ -51,6 +51,7 @@ struct PlacesView: View {
         .background(Theme.bg)
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
+        .onAppear { if store.loaded { Task { await store.load() } } }
         .sheet(isPresented: $showTypePicker) {
             TypePickerView { kind, custom in Task { await create(kind, custom) } }
         }
@@ -148,6 +149,15 @@ struct PlaceTile: View {
     let count: Int
     let destination: String?
 
+    private var tileStatus: String {
+        switch place.status {
+        case .open: return "\(place.kindTitle) · \(Plural.things(count))"
+        case .packed: return "Запакована · \(Plural.things(count))"
+        case .unpacking: return "Распаковка · \(Plural.things(count))"
+        case .done: return "Разобрана"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .top) {
@@ -177,7 +187,8 @@ struct PlaceTile: View {
                 }.padding(8)
             }
             Text(place.displayTitle).font(.system(size: 15, weight: .bold)).lineLimit(1)
-            Text("\(place.kindTitle) · \(Plural.things(count))").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+            Text(tileStatus).font(.caption.weight(place.status == .open ? .regular : .semibold))
+                .foregroundStyle(place.status == .packed ? Theme.accent : Theme.muted).lineLimit(1)
         }
         .padding(8).background(Theme.card, in: RoundedRectangle(cornerRadius: 22))
         .opacity(place.status == .done ? 0.55 : 1)

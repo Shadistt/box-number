@@ -178,16 +178,16 @@ struct PlaceView: View {
         .overlay { if showPackCard { packCard(place) } }
     }
 
-    /// Карточка «Запаковать?»: верхний край совпадает с верхом плашки, накрывает всё ниже.
+    /// Карточка «Запаковать?»: нижний лист по высоте содержимого, остальное затемнено.
     private func packCard(_ p: Place) -> some View {
-        ZStack(alignment: .top) {
+        ZStack(alignment: .bottom) {
             Color.black.opacity(0.18).ignoresSafeArea()
                 .onTapGesture { withAnimation(.snappy) { showPackCard = false } }
             VStack(alignment: .leading, spacing: 14) {
                 Text("Запаковать место № \(p.number)?").font(.system(size: 22, weight: .heavy))
                 Text("Всё, что происходит дальше — запаковали, открыли, достали вещь, — остаётся в истории с датой.")
                     .font(.system(size: 16)).foregroundStyle(Color(hex: 0x4F5157)).lineSpacing(3)
-                Spacer(minLength: 0)
+                    .padding(.bottom, 8)
                 Button {
                     withAnimation(.snappy) { showPackCard = false }
                     setStatus(.packed, toast: "Запаковано")
@@ -196,56 +196,14 @@ struct PlaceView: View {
                 Button("Не сейчас") { withAnimation(.snappy) { showPackCard = false } }
                     .buttonStyle(PrimaryButtonStyle(fill: Theme.bg, ink: Theme.ink))
             }
-            .padding(20).padding(.bottom, 8)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(20).padding(.bottom, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
             .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
-            .padding(.top, max(0, barTop))
             .ignoresSafeArea(edges: .bottom)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
-
-    /// Вариант Б: чипы «№ 3 · Папка · 1 вещь (· Общая)»
-    private func metaChips(_ p: Place) -> [String] {
-        var c = ["№ \(p.number)", p.kindTitle, Plural.things(items.count)]
-        if p.shared { c.append("Общая") }
-        return c
-    }
-
-    @State private var saveTask: Task<Void, Never>? = nil
-    private func scheduleSave() {
-        saveTask?.cancel()
-        saveTask = Task { try? await Task.sleep(for: .seconds(1)); if !Task.isCancelled { saveTitle() } }
-    }
-    private func saveTitle() {
-        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let p = place, t != p.title else { return }
-        Task { try? await store.updatePlace(placeId, title: t) }
-    }
-
-    private func toggleLock(_ p: Place) async {
-        switch p.status {
-        case .open:
-            guard p.destinationId != nil else {
-                withAnimation(.snappy) { barExpanded = true }
-                withAnimation(.linear(duration: 0.4)) { shakes += 1 }; return
-            }
-            withAnimation(.snappy) { showPackCard = true }
-        case .packed: lockDialog = .packed
-        case .unpacking: lockDialog = .unpacking
-        case .done: lockDialog = .done
-        }
-    }
-
-    private func setStatus(_ next: PlaceStatus, toast text: String) {
-        Task {
-            do { try await store.updatePlace(placeId, status: next); show(text) }
-            catch { show(error.localizedDescription) }
-        }
-    }
-
-    private var allTaken: Bool { !items.isEmpty && items.allSatisfy(\.isTaken) }
 
     private var lockTitle: String {
         guard let p = place else { return "" }

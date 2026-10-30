@@ -71,7 +71,8 @@ extension Move {
     func displayTitle(destinations: [MoveDestination]) -> String {
         if let t = title, !t.isEmpty { return t }
         let first = destinations.sorted { $0.position < $1.position }.first?.name ?? ""
-        return fromCity.isEmpty ? first : "\(fromCity) → \(first)"
+        let more = destinations.count > 1 ? " +\(destinations.count - 1)" : ""
+        return (fromCity.isEmpty ? first : "\(fromCity) → \(first)") + more
     }
 }
 
