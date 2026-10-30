@@ -99,6 +99,8 @@ struct ItemCardView: View {
     @State private var showMove = false
     @State private var confirmDelete = false
     @State private var suggestions: [String] = []
+    @State private var editPhoto: EditablePhoto? = nil
+    @State private var photoVersion = 0
 
     private var place: Place? { store.place(item.placeId) }
     private var editable: Bool { place?.status == .open }
@@ -108,6 +110,18 @@ struct ItemCardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ItemThumb(item: item, full: true).frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+                        .id(photoVersion)
+                        .overlay(alignment: .bottomTrailing) {
+                            if editable {
+                                Button {
+                                    Task { if let img = await PhotoStore.image(for: item, thumb: false) { editPhoto = EditablePhoto(image: img) } }
+                                } label: {
+                                    Label("Обрезать · повернуть", systemImage: "crop.rotate").font(.system(size: 13, weight: .semibold))
+                                        .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                }
+                                .padding(10)
+                            }
+                        }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ПОДПИСЬ").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         TextField("Что это", text: $title, axis: .vertical).font(.system(size: 18, weight: .semibold))
@@ -154,7 +168,18 @@ struct ItemCardView: View {
             .sheet(isPresented: $showMove) {
                 MoveItemView(store: store, item: item) { dismiss() }
             }
+            .fullScreenCover(item: $editPhoto) { p in
+                PhotoEditView(image: p.image) { edited in Task { await replacePhoto(edited) } }
+            }
         }
+    }
+
+    /// Новое фото под тем же ключом: локально сразу, в R2 — следом; подсказки подписи пересчитываем.
+    private func replacePhoto(_ img: UIImage) async {
+        guard let data = PhotoStore.save(img, for: item.id) else { return }
+        photoVersion += 1
+        await PhotoStore.upload(item.id, photo: data.photo, thumb: data.thumb, store: store)
+        suggestions = await Captioner.candidates(img)
     }
 
     private func save() {
@@ -194,3 +219,5 @@ struct MoveItemView: View {
         }
     }
 }
+
+struct EditablePhoto: Identifiable { let id = UUID(); let image: UIImage }

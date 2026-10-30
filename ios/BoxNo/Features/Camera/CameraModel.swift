@@ -9,6 +9,7 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     private let queue = DispatchQueue(label: "co.boxnumber.camera")
     private let output = AVCapturePhotoOutput()
     private var configured = false
+    private var device: AVCaptureDevice?
     private var pending: CheckedContinuation<Data, Error>?
     private var observers: [NSObjectProtocol] = []
 
@@ -70,10 +71,23 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         }
         session.addInput(input)
         session.addOutput(output)
+        self.device = device
         output.maxPhotoQualityPrioritization = .balanced
         session.commitConfiguration()
         configured = true
     }
+
+    /// Зум: по документации — только между lockForConfiguration/unlock, в пределах min…maxAvailableVideoZoomFactor.
+    /// Ограничиваем 10×: дальше картинка только апскейлится.
+    func setZoom(_ factor: CGFloat) {
+        queue.async { [self] in
+            guard let device else { return }
+            let z = min(max(factor, device.minAvailableVideoZoomFactor), min(device.maxAvailableVideoZoomFactor, 10))
+            do { try device.lockForConfiguration(); device.videoZoomFactor = z; device.unlockForConfiguration() }
+            catch { print("zoom:", error) }
+        }
+    }
+    var zoom: CGFloat { device?.videoZoomFactor ?? 1 }
 
     /// Снимок → JPEG. Снимаем подряд, без «Готово».
     func capture() async throws -> Data {

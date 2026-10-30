@@ -12,6 +12,8 @@ struct CameraView: View {
     @State private var shots = 0
     @State private var lastThumb: UIImage? = nil
     @State private var busy = false
+    @State private var zoom: CGFloat = 1
+    @State private var zoomAtPinchStart: CGFloat = 1
 
     struct Toast: Equatable { var text: String; var undo: Bool }
 
@@ -20,6 +22,13 @@ struct CameraView: View {
             Color.black.ignoresSafeArea()
             if granted == true {
                 CameraPreview(session: CameraModel.shared.session).ignoresSafeArea()
+                    // Щипок — зум как в системной камере (MagnifyGesture, iOS 17).
+                    .gesture(MagnifyGesture()
+                        .onChanged { v in
+                            let z = min(max(zoomAtPinchStart * v.magnification, 1), 10)
+                            zoom = z; CameraModel.shared.setZoom(z)
+                        }
+                        .onEnded { _ in zoomAtPinchStart = zoom })
             } else if granted == false {
                 VStack(spacing: 12) {
                     Text("Нет доступа к камере").font(.headline).foregroundStyle(.white)
@@ -37,6 +46,15 @@ struct CameraView: View {
                             .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
                     }
                     Spacer()
+                    // Чип зума: тап переключает 1× / 2×, при щипке показывает текущее значение.
+                    Button {
+                        let z: CGFloat = zoom < 1.5 ? 2 : 1
+                        withAnimation(.snappy) { zoom = z }; zoomAtPinchStart = z; CameraModel.shared.setZoom(z)
+                    } label: {
+                        Text(zoom == zoom.rounded() ? "\(Int(zoom))×" : String(format: "%.1f×", zoom))
+                            .font(.system(size: 13, weight: .bold)).foregroundStyle(zoom > 1 ? Theme.accent : .white)
+                            .frame(minWidth: 40).frame(height: 32).padding(.horizontal, 6).background(.black.opacity(0.45), in: Capsule())
+                    }
                     if shots > 0 {
                         Text("+\(shots)").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
                             .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.45), in: Capsule())
@@ -91,7 +109,7 @@ struct CameraView: View {
         .task {
             granted = await CameraModel.requestAccess()
             // Полный экран всегда поднимает сессию заново: так второй слой превью гарантированно получает кадры.
-            if granted == true { CameraModel.shared.restart() }
+            if granted == true { CameraModel.shared.restart(); zoom = 1; zoomAtPinchStart = 1; CameraModel.shared.setZoom(1) }
         }
         .animation(.snappy, value: toast)
     }
