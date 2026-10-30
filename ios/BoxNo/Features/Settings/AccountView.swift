@@ -239,13 +239,14 @@ struct AvatarCarousel: View {
 
     /// Масштаб по расстоянию от центра экрана: в центре 1, у краёв 0.6.
     private func item<C: View>(_ id: String, @ViewBuilder content: () -> C) -> some View {
-        GeometryReader { g in
+        let content = content()
+        return GeometryReader { g in
             let mid = g.frame(in: .global).midX
             let screenMid = UIScreen.main.bounds.midX
             let k: CGFloat = min(1, abs(mid - screenMid) / (big + 12))
             let scale: CGFloat = 1 - 0.4 * k
             let alpha: Double = 1 - 0.35 * Double(k)
-            content()
+            content
                 .frame(width: big, height: big).clipShape(Circle())
                 .overlay(Circle().stroke(Theme.ink, lineWidth: k < 0.3 ? 3 : 0))
                 .scaleEffect(scale)
