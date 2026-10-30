@@ -7,9 +7,19 @@ enum Captioner {
         await candidates(image).first ?? "Вещь"
     }
 
+    /// Порог «уверены»: ниже него подпись считаем предварительной (потом — уточнение на сервере).
+    static let confident: Float = 0.35
+
+    /// Сначала SigLIP 2 (если модель в сборке), иначе встроенная Vision.
+    static func candidates(_ image: UIImage) async -> [String] {
+        let clip = await ClipCaptioner.shared.candidates(image)
+        if !clip.isEmpty { return clip.map(\.title) }
+        return await visionCandidates(image)
+    }
+
     /// До 5 вариантов подписи по убыванию уверенности. Порог — по точности/полноте модели, а не по «сырой» уверенности:
     /// у бытовых вещей она часто 0,05–0,2, и строгий порог отбрасывал всё.
-    static func candidates(_ image: UIImage) async -> [String] {
+    static func visionCandidates(_ image: UIImage) async -> [String] {
         guard let cg = image.cgImage else { return [] }
         return await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -31,7 +41,7 @@ enum Captioner {
         }
     }
 
-    private static func cgOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
+    static func cgOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
         switch o {
         case .up: return .up
         case .down: return .down

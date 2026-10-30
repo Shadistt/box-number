@@ -1,0 +1,6 @@
+{
+  "model": "google/siglip2-base-patch16-224",
+  "logit_scale": 112.66889953613281,
+  "logit_bias": -16.771724700927734,
+  "image_size": 224
+}

@@ -6,7 +6,8 @@ SwiftUI · iOS 17+ · Supabase Swift SDK. Язык Swift 5 (строгая пр�
 
 1. Xcode 16+, Mac. `brew install xcodegen`.
 2. В папке `ios/`: `xcodegen generate` → откроется `BoxNo.xcodeproj`.
-3. Xcode подтянет пакет `supabase-swift`. Signing — автоматический, Team `2P3PUF975G`, Bundle ID `co.boxnumber.app`.
+3. Модель подписей: `./scripts-fetch-ml.sh` (скачает `BoxNo/ML/SigLIP2Image.mlpackage`, ~67 МБ, из релиза `ml-v1`; в git не хранится). Без неё приложение соберётся и будет использовать встроенную Vision.
+4. Xcode подтянет пакет `supabase-swift`. Signing — автоматический, Team `2P3PUF975G`, Bundle ID `co.boxnumber.app`.
 4. Запуск на iPhone: выбрать устройство, ⌘R.
 
 Проект `.xcodeproj` в git не хранится — генерируется из `project.yml`.
