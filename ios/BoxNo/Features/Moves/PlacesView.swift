@@ -9,6 +9,7 @@ struct PlacesView: View {
     @State private var showTypePicker = false
     @State private var open: PlaceRef? = nil
     @State private var creating = false
+    @FocusState private var searching: Bool
 
     enum Tab: String, CaseIterable { case places = "Места", items = "Все вещи" }
     struct PlaceRef: Identifiable, Hashable { let id: UUID }
@@ -30,8 +31,19 @@ struct PlacesView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
-                header
-                SearchField(text: $query, placeholder: "Найти вещь или место")
+                if !searching { header.transition(.move(edge: .top).combined(with: .opacity)) }
+                HStack(spacing: 10) {
+                    SearchField(text: $query, placeholder: "Найти вещь или место", focused: $searching)
+                    if searching {
+                        Button {
+                            query = ""; searching = false
+                        } label: {
+                            Image(systemName: "xmark").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.ink)
+                                .frame(width: 44, height: 44).background(Theme.card, in: Circle())
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
                 Picker("", selection: $tab) {
                     ForEach(Tab.allCases, id: \.self) { Text($0.rawValue) }
                 }.pickerStyle(.segmented)
@@ -41,15 +53,21 @@ struct PlacesView: View {
                     Color.clear.frame(height: 110)
                 }
                 .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.immediately)
                 .refreshable { await store.load() }
             }
             .padding(.horizontal, 16)
 
-            FAB(title: "Добавить место") { showTypePicker = true }
-                .padding(.bottom, 20)
+            if !searching {
+                FAB(title: "Добавить место") { showTypePicker = true }
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .background(Theme.bg)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(searching ? .hidden : .visible, for: .navigationBar)
+        .animation(.snappy, value: searching)
         .task { await store.load() }
         .onAppear { if store.loaded { Task { await store.load() } } }
         .sheet(isPresented: $showTypePicker) {
@@ -212,10 +230,15 @@ struct Chip: View {
 struct SearchField: View {
     @Binding var text: String
     let placeholder: String
+    var focused: FocusState<Bool>.Binding? = nil
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
-            TextField(placeholder, text: $text).autocorrectionDisabled()
+            if let focused {
+                TextField(placeholder, text: $text).autocorrectionDisabled().focused(focused).submitLabel(.search)
+            } else {
+                TextField(placeholder, text: $text).autocorrectionDisabled()
+            }
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
             }
