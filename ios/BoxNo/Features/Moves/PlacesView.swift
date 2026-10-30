@@ -114,7 +114,7 @@ struct PlacesView: View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12, alignment: .top), GridItem(.flexible(), spacing: 12, alignment: .top)], spacing: 12) {
             ForEach(filtered) { p in
                 Button { open = PlaceRef(id: p.id) } label: {
-                    PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name)
+                    PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name, query: query)
                 }.buttonStyle(.plain)
             }
         }
@@ -129,7 +129,7 @@ struct PlacesView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 10) {
                             Image(systemName: p.kind.symbol).font(.system(size: 18, weight: .semibold))
-                            Text("№ \(p.number) · \(p.displayTitle)").font(.system(size: 16, weight: .bold)).lineLimit(1)
+                            Text(highlight("№ \(p.number) · \(p.displayTitle)", query)).font(.system(size: 16, weight: .bold)).lineLimit(1)
                             Spacer()
                             Text(Plural.things(its.count)).font(.footnote).foregroundStyle(Theme.muted)
                         }
@@ -139,7 +139,7 @@ struct PlacesView: View {
                             ForEach(its) { it in
                                 HStack(spacing: 10) {
                                     ItemThumb(item: it, size: 36)
-                                    Text(it.title).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
+                                    Text(highlight(it.title, query)).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
                                     Spacer()
                                 }
                             }
@@ -169,6 +169,7 @@ struct PlaceTile: View {
     let place: Place
     let count: Int
     let destination: String?
+    var query = ""
 
     private var tileStatus: String {
         switch place.status {
@@ -212,7 +213,7 @@ struct PlaceTile: View {
                     }
                 }.padding(8)
             }
-            Text(place.displayTitle).font(.system(size: 15, weight: .bold)).lineLimit(1)
+            Text(highlight(place.displayTitle, query)).font(.system(size: 15, weight: .bold)).lineLimit(1)
             Text(tileStatus).font(.caption.weight(place.status == .open ? .regular : .semibold))
                 .foregroundStyle(place.status == .packed ? Theme.accent : Theme.muted).lineLimit(1)
         }
@@ -282,4 +283,17 @@ extension Array where Element == String {
         default: return dropLast().joined(separator: ", ") + " и " + last!
         }
     }
+}
+
+/// Подсветка совпадения с запросом поиска (регистр не важен): оранжевая подложка, как выделение маркером.
+func highlight(_ text: String, _ query: String) -> AttributedString {
+    var a = AttributedString(text)
+    let q = query.trimmingCharacters(in: .whitespaces)
+    guard !q.isEmpty else { return a }
+    var start = text.startIndex
+    while let r = text.range(of: q, options: [.caseInsensitive, .diacriticInsensitive], range: start..<text.endIndex) {
+        if let ar = Range(r, in: a) { a[ar].backgroundColor = Theme.accent.opacity(0.35) }
+        start = r.upperBound
+    }
+    return a
 }

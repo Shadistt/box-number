@@ -48,11 +48,21 @@ struct MoveCard: View {
             Text("\(places) мест · с \(move.createdAt.formatted(.dateTime.day().month(.wide)))")
                 .font(.subheadline).foregroundStyle(.white.opacity(0.7))
             if !destinations.isEmpty {
-                HStack { ForEach(destinations) { d in
-                    Label(d.name, systemImage: "mappin").font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(.white.opacity(0.12), in: Capsule())
-                } }
+                // Больше трёх направлений не влезает — показываем первые и «+N».
+                HStack(spacing: 6) {
+                    ForEach(destinations.prefix(3)) { d in
+                        Label(d.name, systemImage: "mappin").font(.caption.weight(.semibold)).lineLimit(1)
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.white.opacity(0.12), in: Capsule())
+                            .layoutPriority(1)
+                    }
+                    if destinations.count > 3 {
+                        Text("+\(destinations.count - 3)").font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.white.opacity(0.12), in: Capsule())
+                            .layoutPriority(2)
+                    }
+                }
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)

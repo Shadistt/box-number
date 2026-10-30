@@ -44,8 +44,10 @@ struct Box3DView: View, Animatable {
                 .concatenating(CGAffineTransform(translationX: origin.x, y: origin.y))
             ctx.drawLayer { layer in
                 layer.transform = faceToCanvas
-                let text = Text(number).font(.custom("PermanentMarker-Regular", size: 17)).foregroundStyle(Color(hex: 0x1B1A18))
-                layer.draw(text, in: CGRect(x: 0, y: 0, width: w, height: h))
+                // Читаемый шрифт и строго по центру грани (draw(at:anchor:) — якорь в центре по документации).
+                let text = Text(number).font(.system(size: number.count > 2 ? 12 : 15, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color(hex: 0x1B1A18))
+                layer.draw(text, at: CGPoint(x: w / 2, y: h / 2), anchor: .center)
             }
         }
         .frame(width: size, height: size)

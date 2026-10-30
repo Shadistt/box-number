@@ -22,12 +22,12 @@ struct DestinationPickerView: View {
                             Button {
                                 Task { try? await store.updatePlace(placeId, destinationId: .some(d.id)); dismiss() }
                             } label: {
-                                HStack {
+                                HStack(spacing: 12) {
+                                    // Системная «радиоточка»: выбранное — закрашенный круг с галочкой.
+                                    Image(systemName: d.id == current ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 22)).foregroundStyle(d.id == current ? Theme.accent : Theme.line)
                                     Text(d.name).font(.system(size: 17, weight: .semibold)).lineLimit(1)
                                     Spacer()
-                                    if d.id == current {
-                                        Label("выбрано", systemImage: "checkmark").font(.footnote.weight(.bold)).foregroundStyle(Theme.accent)
-                                    }
                                 }
                                 .padding(.horizontal, 16).frame(minHeight: 56)
                                 .overlay(alignment: .top) { if i > 0 { Divider().padding(.leading, 16) } }
@@ -70,9 +70,9 @@ struct DestinationPickerView: View {
         guard !name.isEmpty else { return }
         Task {
             do {
-                let d = try await store.addDestination(name)
-                try await store.updatePlace(placeId, destinationId: .some(d.id))
-                newName = ""; error = nil; dismiss()
+                // Новое направление только появляется в списке — выбрать и закрыть пользователь решает сам.
+                _ = try await store.addDestination(name)
+                newName = ""; error = nil
             } catch { self.error = error.localizedDescription }
         }
     }

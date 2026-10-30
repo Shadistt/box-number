@@ -17,11 +17,8 @@ struct NewMoveView: View {
     struct Dest: Identifiable { let id = UUID(); var text = "" }
 
     private var filled: [String] { dests.map { $0.text.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
-    private var cta: String {
-        guard let first = filled.first else { return "Укажите, куда переезжаете" }
-        let f = from.trimmingCharacters(in: .whitespaces)
-        return "Начать: " + (f.isEmpty ? first : "\(f) → \(first)") + (filled.count > 1 ? " +\(filled.count - 1)" : "")
-    }
+    /// Единая надпись: длинные названия городов на кнопке выглядели плохо.
+    private var cta: String { filled.isEmpty ? "Укажите, куда переезжаете" : "Начать переезд" }
 
     var body: some View {
         NavigationStack {
@@ -76,9 +73,9 @@ struct NewMoveView: View {
         let lifted = dragging == d.id
         let binding = Binding(get: { dests.first { $0.id == d.id }?.text ?? "" },
                               set: { v in if let k = dests.firstIndex(where: { $0.id == d.id }) { dests[k].text = v } })
-        return HStack(spacing: 10) {
+        return HStack(spacing: 12) {
             Text(i == 0 ? "Куда" : "Куда \(i + 1)").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: 0x4F5157)).frame(width: 60, alignment: .leading)
+                .foregroundStyle(Color(hex: 0x4F5157)).frame(width: 64, alignment: .leading)   // как у «Откуда» — текст в одну линию
             TextField("Город и/или адрес", text: binding)
                 .font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
                 .autocorrectionDisabled().textInputAutocapitalization(.words)
