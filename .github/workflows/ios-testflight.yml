@@ -28,11 +28,6 @@ jobs:
           if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
           xcodebuild -version && xcodebuild -showsdks | grep -i ios
 
-      - name: ML model (SigLIP 2)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./ios/scripts-fetch-ml.sh
-
       - name: XcodeGen
         run: brew install xcodegen && cd ios && xcodegen generate
 
