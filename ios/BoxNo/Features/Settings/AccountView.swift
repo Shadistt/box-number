@@ -275,7 +275,7 @@ struct SelfiePicker: UIViewControllerRepresentable {
 @MainActor
 final class AppleLinker: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     enum LinkError: Error { case canceled, noToken }
-    private var cont: CheckedContinuation<(String, String), Error>?
+    private var cont: CheckedContinuation<(token: String, nonce: String), Error>?
     private var nonce = ""
 
     func request() async throws -> (token: String, nonce: String) {
@@ -293,7 +293,7 @@ final class AppleLinker: NSObject, ASAuthorizationControllerDelegate, ASAuthoriz
               let data = cred.identityToken, let token = String(data: data, encoding: .utf8) else {
             cont?.resume(throwing: LinkError.noToken); cont = nil; return
         }
-        cont?.resume(returning: (token, nonce)); cont = nil
+        cont?.resume(returning: (token: token, nonce: nonce)); cont = nil
     }
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         if (error as? ASAuthorizationError)?.code == .canceled { cont?.resume(throwing: LinkError.canceled) } else { cont?.resume(throwing: error) }
