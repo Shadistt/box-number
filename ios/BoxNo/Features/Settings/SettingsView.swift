@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var store = ProfileStore.shared
     @State private var showDelete = false
+    @State private var confirmSignOut = false
 
     var body: some View {
         NavigationStack {
@@ -54,7 +55,7 @@ struct SettingsView: View {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }
                     }
                     SettingsCard {
-                        Button { Task { await session.signOut(); dismiss() } } label: { Row("Выйти", chevron: false) }
+                        Button { confirmSignOut = true } label: { Row("Выйти", chevron: false) }
                         Divider().padding(.leading, 16)
                         Button { showDelete = true } label: { Row("Удалить аккаунт", chevron: false, color: .red) }
                     }
@@ -65,8 +66,15 @@ struct SettingsView: View {
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { CircleButton(systemName: "xmark") { dismiss() } }
+                // Системная кнопка — тогда она того же размера и формы, что «назад» на вложенных экранах.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark").font(.system(size: 15, weight: .bold)) }
+                }
             }
+            .confirmationDialog("Выйти из аккаунта?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button("Выйти", role: .destructive) { Task { await session.signOut(); dismiss() } }
+                Button("Отмена", role: .cancel) {}
+            } message: { Text("Места и фото останутся в облаке — войдёте снова и всё будет на месте.") }
             .navigationDestination(isPresented: $showDelete) { DeleteAccountView() }
             .task { await store.load() }
             .refreshable { await store.load() }

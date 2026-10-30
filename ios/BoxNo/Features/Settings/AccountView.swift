@@ -15,9 +15,11 @@ struct AccountView: View {
     @State private var selfie = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var showPicker = false
+    @State private var carouselId: String?     // "photo" или id пресета — что по центру карусели
 
-    @State private var passwordSheet = false
-    @State private var twoFASheet = false
+    @State private var passwordCard = false
+    @State private var twoFACard = false
+    @State private var unlinkProvider: String?
     @State private var error: String?
     @State private var busy = false
     @State private var appleLinker = AppleLinker()
@@ -25,7 +27,7 @@ struct AccountView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-                avatarCarousel
+                AvatarCarousel(store: store, selection: $carouselId, onPhotoTap: { photoMenu = true })
                 Text(avatarCaption).font(.footnote).foregroundStyle(Theme.muted).padding(.bottom, 4)
 
                 SectionTitle("Данные")
@@ -36,7 +38,7 @@ struct AccountView: View {
                     Divider().padding(.leading, 16)
                     NavigationLink { ChangeEmailView() } label: { LabeledRow(label: "Email", value: store.profile?.email ?? "") }
                     Divider().padding(.leading, 16)
-                    Button { passwordSheet = true } label: {
+                    Button { withAnimation(.snappy) { passwordCard = true } } label: {
                         LabeledRow(label: "Пароль", value: store.hasPassword ? "••••••••" : "Не задан", muted: !store.hasPassword)
                     }
                 }
@@ -49,7 +51,7 @@ struct AccountView: View {
                             Text("Код на email каждые 30 дней").font(.footnote).foregroundStyle(Theme.muted)
                         }
                         Spacer()
-                        Toggle("", isOn: Binding(get: { store.profile?.twoFactor ?? false }, set: { _ in twoFASheet = true }))
+                        Toggle("", isOn: Binding(get: { store.profile?.twoFactor ?? false }, set: { _ in withAnimation(.snappy) { twoFACard = true } }))
                             .labelsHidden().tint(Theme.accent)
                     }
                     .padding(16)
@@ -71,16 +73,30 @@ struct AccountView: View {
         }
         .background(Theme.bg)
         .navigationTitle("Аккаунт").navigationBarTitleDisplayMode(.inline)
-        .onAppear { first = store.profile?.firstName ?? ""; last = store.profile?.lastName ?? "" }
+        .onAppear {
+            first = store.profile?.firstName ?? ""; last = store.profile?.lastName ?? ""
+            carouselId = store.profile?.hasCustomAvatar == true ? "photo" : AvatarPreset.named(store.profile?.avatar ?? "").id
+        }
         .onChange(of: first) { _, _ in scheduleSave() }
         .onChange(of: last) { _, _ in scheduleSave() }
+        .onChange(of: carouselId) { _, id in
+            // Остановились на аватарке — она и выбрана. Пустой слот «своё фото» выбором не считается.
+            guard let id else { return }
+            if id == "photo" { if store.profile?.photo != nil { Task { await store.setAvatar("photo") } } }
+            else { Task { await store.setPreset(id) } }
+        }
         .onDisappear { saveTask?.cancel(); Task { await saveNames() } }
         .confirmationDialog("Своё фото", isPresented: $photoMenu, titleVisibility: .hidden) {
             Button("Сделать селфи") { selfie = true }
             Button("Выбрать из фото") { showPicker = true }
-            if store.profile?.hasCustomAvatar == true { Button("Удалить фото", role: .destructive) { Task { await store.setPreset("box") } } }
+            if store.profile?.photo != nil { Button("Удалить фото", role: .destructive) { Task { await store.deletePhoto(); carouselId = "box" } } }
             Button("Отмена", role: .cancel) {}
         }
+        .confirmationDialog("Отвязать \(unlinkProvider == "apple" ? "Apple" : "Google")?",
+                            isPresented: .init(get: { unlinkProvider != nil }, set: { if !$0 { unlinkProvider = nil } }), titleVisibility: .visible) {
+            Button("Отвязать", role: .destructive) { if let p = unlinkProvider { Task { await unlink(p) } } }
+            Button("Отмена", role: .cancel) {}
+        } message: { Text("Войти этим способом больше не получится, пока не привяжете снова.") }
         .photosPicker(isPresented: $showPicker, selection: $pickerItem, matching: .images)
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
@@ -92,58 +108,21 @@ struct AccountView: View {
         .fullScreenCover(isPresented: $selfie) {
             SelfiePicker { img in if let img { Task { await setPhoto(img) } } }.ignoresSafeArea()
         }
-        .sheet(isPresented: $passwordSheet) { PasswordSheet().presentationDetents([.medium, .large]) }
-        .sheet(isPresented: $twoFASheet) { TwoFactorToggleSheet().presentationDetents([.medium]) }
+        // Нижние карточки поверх этого же экрана (как «Запаковать»), а не системные sheet'ы со стопкой окон.
+        .overlay { if passwordCard { BottomCard(isPresented: $passwordCard) { PasswordCard(close: { withAnimation(.snappy) { passwordCard = false } }) } } }
+        .overlay { if twoFACard { BottomCard(isPresented: $twoFACard) { TwoFactorCard(close: { withAnimation(.snappy) { twoFACard = false } }) } } }
         .overlay { if busy { ProgressView().padding(20).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         .task { await store.loadIdentities() }
     }
 
-    // MARK: аватар
-
-    private var avatarCarousel: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 14) {
-                Button { photoMenu = true } label: {
-                    ZStack {
-                        if store.profile?.hasCustomAvatar == true, let img = store.avatarImage {
-                            Image(uiImage: img).resizable().scaledToFill()
-                        } else {
-                            Color(hex: 0xE4E2DC)
-                            Image(systemName: "camera.fill").font(.system(size: 26, weight: .semibold)).foregroundStyle(Color(hex: 0x4F5157))
-                        }
-                    }
-                    .frame(width: 84, height: 84).clipShape(Circle())
-                    .overlay(Circle().stroke(Theme.accent, lineWidth: store.profile?.hasCustomAvatar == true ? 3 : 0))
-                }
-                .buttonStyle(.plain)
-                ForEach(AvatarPreset.all) { p in
-                    let on = store.profile?.hasCustomAvatar == false && AvatarPreset.named(store.profile?.avatar ?? "").id == p.id
-                    Button { Task { await store.setPreset(p.id) } } label: {
-                        ZStack {
-                            p.color
-                            Image(systemName: p.symbol).font(.system(size: 30, weight: .semibold)).foregroundStyle(.white)
-                        }
-                        .frame(width: 84, height: 84).clipShape(Circle())
-                        .overlay(Circle().stroke(Theme.ink, lineWidth: on ? 3 : 0))
-                        .scaleEffect(on ? 1 : 0.92)
-                        .animation(.snappy, value: on)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(p.title)
-                }
-            }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-        }
-        .padding(.horizontal, -16)
-    }
-
     private var avatarCaption: String {
-        store.profile?.hasCustomAvatar == true ? "Нажмите, чтобы изменить фото" : "Листайте или загрузите своё фото"
+        if carouselId == "photo" { return store.profile?.photo != nil ? "Нажмите, чтобы изменить или удалить фото" : "Нажмите — селфи или фото из галереи" }
+        return "Листайте или загрузите своё фото"
     }
 
     private func setPhoto(_ img: UIImage) async {
         busy = true; defer { busy = false }
-        do { try await store.setPhoto(img) } catch { self.error = "Не удалось загрузить фото. Попробуйте ещё раз." }
+        do { try await store.setPhoto(img); carouselId = "photo" } catch { self.error = "Не удалось загрузить фото. Попробуйте ещё раз." }
     }
 
     // MARK: имя
@@ -162,6 +141,7 @@ struct AccountView: View {
 
     private func providerRow(_ title: String, symbol: String, provider: String) -> some View {
         let linked = store.identity(provider) != nil
+        let last = linked && !store.canUnlinkProvider
         return HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
                 .frame(width: 40, height: 40).background(Theme.ink, in: Circle()).foregroundStyle(.white)
@@ -170,15 +150,18 @@ struct AccountView: View {
                 Text(linked ? (store.identityEmail(provider) ?? "Привязан") : "Не привязан").font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()
-            Button(linked ? "Отвязать" : "Привязать") {
-                Task { linked ? await unlink(provider) : await link(provider) }
+            if last {
+                // Последний способ входа: кнопки нет, пояснение под списком.
+                Text("Единственный способ").font(.footnote).foregroundStyle(Theme.muted)
+            } else {
+                Button(linked ? "Отвязать" : "Привязать") {
+                    if linked { unlinkProvider = provider } else { Task { await link(provider) } }
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Color(hex: 0xE4E2DC), in: Capsule())
+                .foregroundStyle(Theme.ink)
             }
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 14).frame(height: 36)
-            .background(Color(hex: 0xE4E2DC), in: Capsule())
-            .foregroundStyle(Theme.ink)
-            .disabled(linked && !store.canUnlinkProvider)
-            .opacity(linked && !store.canUnlinkProvider ? 0.4 : 1)
         }
         .padding(16)
     }
@@ -207,6 +190,69 @@ struct AccountView: View {
         busy = true; defer { busy = false }
         do { try await supabase.auth.unlinkIdentity(identity); await store.loadIdentities() }
         catch { self.error = "Не удалось отвязать: \(error.localizedDescription)" }
+    }
+}
+
+// MARK: - Карусель аватарок: активная по центру крупно, остальные мельче по бокам
+
+struct AvatarCarousel: View {
+    let store: ProfileStore
+    @Binding var selection: String?
+    let onPhotoTap: () -> Void
+    private let big: CGFloat = 96
+
+    var body: some View {
+        GeometryReader { outer in
+            let side = (outer.size.width - big) / 2
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    item("photo") {
+                        ZStack {
+                            if let img = store.avatarImage, store.profile?.photo != nil {
+                                Image(uiImage: img).resizable().scaledToFill()
+                            } else {
+                                Color(hex: 0xE4E2DC)
+                                Image(systemName: "camera.fill").font(.system(size: 30, weight: .semibold)).foregroundStyle(Color(hex: 0x4F5157))
+                            }
+                        }
+                    }
+                    .onTapGesture { if selection == "photo" { onPhotoTap() } else { withAnimation(.snappy) { selection = "photo" } } }
+                    ForEach(AvatarPreset.all) { p in
+                        item(p.id) {
+                            ZStack {
+                                p.color
+                                Image(systemName: p.symbol).font(.system(size: 34, weight: .semibold)).foregroundStyle(.white)
+                            }
+                        }
+                        .onTapGesture { withAnimation(.snappy) { selection = p.id } }
+                        .accessibilityLabel(p.title)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .safeAreaPadding(.horizontal, side)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $selection, anchor: .center)
+        }
+        .frame(height: big + 8)
+    }
+
+    /// Масштаб по расстоянию от центра экрана: в центре 1, у краёв 0.6.
+    private func item<C: View>(_ id: String, @ViewBuilder content: () -> C) -> some View {
+        GeometryReader { g in
+            let mid = g.frame(in: .global).midX
+            let screenMid = UIScreen.main.bounds.midX
+            let k = min(1, abs(mid - screenMid) / (big + 12))
+            let scale = 1 - 0.4 * k
+            content()
+                .frame(width: big, height: big).clipShape(Circle())
+                .overlay(Circle().stroke(Theme.ink, lineWidth: k < 0.3 ? 3 : 0))
+                .scaleEffect(scale)
+                .opacity(1 - 0.35 * k)
+        }
+        .frame(width: big, height: big)
+        .id(id)
+        .contentShape(Circle())
     }
 }
 
@@ -242,7 +288,32 @@ struct LabeledRow: View {
     }
 }
 
-// MARK: - Селфи (фронтальная камера, обрезка в квадрат)
+// MARK: - Нижняя карточка поверх экрана (затемнение + белая карточка до низа)
+
+struct BottomCard<Content: View>: View {
+    @Binding var isPresented: Bool
+    @ViewBuilder let content: Content
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.18).ignoresSafeArea()
+                .onTapGesture { withAnimation(.snappy) { isPresented = false } }
+            VStack(alignment: .leading, spacing: 14) {
+                Capsule().fill(Theme.line).frame(width: 36, height: 5).frame(maxWidth: .infinity)
+                content
+            }
+            .padding(20).padding(.bottom, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(.white)
+                    .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
+                    .ignoresSafeArea(edges: .bottom)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+}
+
+// MARK: - Селфи (фронтальная камера, обрезка в квадрат, зеркально — как в превью)
 
 struct SelfiePicker: UIViewControllerRepresentable {
     let onPick: (UIImage?) -> Void
@@ -263,7 +334,10 @@ struct SelfiePicker: UIViewControllerRepresentable {
         let parent: SelfiePicker
         init(_ parent: SelfiePicker) { self.parent = parent }
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            let img = (info[.editedImage] ?? info[.originalImage]) as? UIImage
+            var img = (info[.editedImage] ?? info[.originalImage]) as? UIImage
+            // Фронтальная камера отдаёт незеркальный кадр, а в превью человек видел себя как в зеркале —
+            // отзеркаливаем, чтобы фото выглядело привычно.
+            if picker.sourceType == .camera, picker.cameraDevice == .front, let i = img { img = i.withHorizontallyFlippedOrientation() }
             parent.onPick(img); parent.dismiss()
         }
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.onPick(nil); parent.dismiss() }

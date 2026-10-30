@@ -30,13 +30,13 @@ struct SupportView: View {
                         Image(systemName: "checkmark").font(.system(size: 30, weight: .bold))
                             .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(.white)
                         Text("Отправили").font(.system(size: 26, weight: .heavy))
-                        Text("Ответим на \(store.profile?.email ?? ""), обычно в течение дня.")
+                        Text("Ответим на \(store.profile?.email ?? "").")
                             .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                         Button("Готово") { dismiss() }.buttonStyle(PrimaryButtonStyle()).padding(.top, 8)
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60)
                 } else {
-                    Text("Живой человек ответит на \(store.profile?.email ?? ""), обычно в течение дня.")
+                    Text("Живой человек ответит на \(store.profile?.email ?? "").")
                         .font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
 
                     SettingsCard {

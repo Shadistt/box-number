@@ -8,7 +8,7 @@ struct Language: Identifiable, Hashable {
     let local: String
 
     static let all: [Language] = [
-        .init(id: "system", native: "Как в системе", local: "Русский"),
+        .init(id: "system", native: "Как в системе", local: systemLanguageName),
         .init(id: "ru", native: "Русский", local: ""),
         .init(id: "uk", native: "Українська", local: "Украинский"),
         .init(id: "en", native: "English", local: "Английский"),
@@ -21,6 +21,13 @@ struct Language: Identifiable, Hashable {
         .init(id: "pt", native: "Português", local: "Португальский"),
     ]
     static func current(_ locale: String?) -> Language { all.first { $0.id == locale } ?? all[1] }
+
+    /// Язык системы по-русски («Английский»), чтобы «Как в системе» не врал.
+    static var systemLanguageName: String {
+        // Без обращения к `all`: оно само строится из этого значения.
+        let code = Locale.preferredLanguages.first.flatMap { Locale(identifier: $0).language.languageCode?.identifier } ?? "ru"
+        return Locale(identifier: "ru").localizedString(forLanguageCode: code)?.capitalized ?? code
+    }
 }
 
 struct LanguageView: View {

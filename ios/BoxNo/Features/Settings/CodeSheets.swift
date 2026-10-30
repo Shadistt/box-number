@@ -48,13 +48,15 @@ enum EmailCode {
     }
 }
 
-// MARK: - Пароль: задать или изменить
+// MARK: - Пароль: задать или изменить (нижняя карточка)
 
-struct PasswordSheet: View {
-    @Environment(\.dismiss) private var dismiss
+struct PasswordCard: View {
+    let close: () -> Void
     @State private var store = ProfileStore.shared
     @State private var current = ""
     @State private var new = ""
+    @State private var repeatNew = ""
+    @State private var showNew = false
     @State private var code = ""
     @State private var stage: Stage = .form
     @State private var busy = false
@@ -63,45 +65,50 @@ struct PasswordSheet: View {
 
     private var hasPassword: Bool { store.hasPassword }
     private var email: String { store.profile?.email ?? "" }
+    private var valid: Bool { new.count >= 8 && new == repeatNew && (!hasPassword || !current.isEmpty) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Capsule().fill(Theme.line).frame(width: 36, height: 5).frame(maxWidth: .infinity).padding(.top, 8)
-            switch stage {
-            case .form:
-                Text(hasPassword ? "Изменить пароль" : "Задать пароль").font(.system(size: 22, weight: .heavy))
-                Text(hasPassword
-                     ? "Введите текущий пароль и новый. Если текущий забыли — закройте и нажмите «Забыли пароль» на экране входа."
-                     : "После этого войти можно будет по email и паролю, а Apple или Google — отвязать, если захотите.")
-                    .font(.subheadline).foregroundStyle(Theme.muted)
-                if hasPassword {
-                    SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle()
-                }
-                SecureField("Новый пароль, не короче 8 символов", text: $new).textContentType(.newPassword).fieldStyle()
-                if !hasPassword {
-                    Text("Подтвердим кодом на \(email) — iPhone подставит его сам.").font(.footnote).foregroundStyle(Theme.muted)
-                }
-                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-                Button(hasPassword ? "Сохранить новый пароль" : "Задать пароль") { Task { await submit() } }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(new.count < 8 || (hasPassword && current.isEmpty) || busy)
-                    .opacity(new.count < 8 || (hasPassword && current.isEmpty) ? 0.5 : 1)
-            case .code:
-                Text("Код из письма").font(.system(size: 22, weight: .heavy))
-                Text("Отправили код на \(email). Введите его, чтобы задать пароль.").font(.subheadline).foregroundStyle(Theme.muted)
-                CodeBoxes(code: $code) { Task { await finishWithNonce() } }
-                Text(busy ? "Проверяем…" : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
-                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-            case .done:
-                Label(hasPassword ? "Пароль изменён" : "Пароль задан", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
-                Text("Теперь входить можно по email и паролю.").font(.subheadline).foregroundStyle(Theme.muted)
-                Button("Готово") { dismiss() }.buttonStyle(PrimaryButtonStyle())
+        switch stage {
+        case .form:
+            Text(hasPassword ? "Изменить пароль" : "Задать пароль").font(.system(size: 22, weight: .heavy))
+            Text(hasPassword
+                 ? "Введите текущий пароль и новый. Если текущий забыли — закройте и нажмите «Забыли пароль» на экране входа."
+                 : "После этого войти можно будет по email и паролю, а Apple или Google — отвязать, если захотите.")
+                .font(.subheadline).foregroundStyle(Theme.muted)
+            if hasPassword {
+                SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle()
             }
-            Button("Отмена") { dismiss() }.frame(maxWidth: .infinity).foregroundStyle(Theme.muted).opacity(stage == .done ? 0 : 1)
-            Spacer(minLength: 0)
+            HStack {
+                Group {
+                    if showNew { TextField("Новый пароль, не короче 8 символов", text: $new) }
+                    else { SecureField("Новый пароль, не короче 8 символов", text: $new) }
+                }
+                .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never)
+                Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted)
+            }
+            .fieldStyle()
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle()
+            if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
+            if !hasPassword {
+                Text("Подтвердим кодом на \(email) — iPhone подставит его сам.").font(.footnote).foregroundStyle(Theme.muted)
+            }
+            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+            Button(hasPassword ? "Сохранить новый пароль" : "Задать пароль") { Task { await submit() } }
+                .buttonStyle(PrimaryButtonStyle()).disabled(!valid || busy).opacity(valid ? 1 : 0.5)
+            Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+        case .code:
+            Text("Код из письма").font(.system(size: 22, weight: .heavy))
+            Text("Отправили код на \(email). Введите его, чтобы задать пароль.").font(.subheadline).foregroundStyle(Theme.muted)
+            CodeBoxes(code: $code) { Task { await finishWithNonce() } }
+            Text(busy ? "Проверяем…" : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
+            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+            Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+        case .done:
+            Label(hasPassword ? "Пароль изменён" : "Пароль задан", systemImage: "checkmark.circle.fill")
+                .font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
+            Text("Теперь входить можно по email и паролю.").font(.subheadline).foregroundStyle(Theme.muted)
+            Button("Готово", action: close).buttonStyle(PrimaryButtonStyle())
         }
-        .padding(20).background(Theme.card)
     }
 
     private func submit() async {
@@ -132,10 +139,10 @@ struct PasswordSheet: View {
     }
 }
 
-// MARK: - Двухфакторная защита: включить / выключить кодом на email
+// MARK: - Двухфакторная защита: включить / выключить кодом на email (нижняя карточка)
 
-struct TwoFactorToggleSheet: View {
-    @Environment(\.dismiss) private var dismiss
+struct TwoFactorCard: View {
+    let close: () -> Void
     @State private var store = ProfileStore.shared
     @State private var code = ""
     @State private var sent = false
@@ -145,31 +152,38 @@ struct TwoFactorToggleSheet: View {
     private var turningOn: Bool { !(store.profile?.twoFactor ?? false) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Capsule().fill(Theme.line).frame(width: 36, height: 5).frame(maxWidth: .infinity).padding(.top, 8)
-            Text(turningOn ? "Включить двухфакторную защиту" : "Выключить двухфакторную защиту").font(.system(size: 22, weight: .heavy))
+        Text(turningOn ? "Включить двухфакторную защиту" : "Выключить двухфакторную защиту").font(.system(size: 22, weight: .heavy))
+        if sent {
             Text("Отправили код на \(store.profile?.email ?? ""). Введите его, чтобы подтвердить.").font(.subheadline).foregroundStyle(Theme.muted)
-            if sent {
-                CodeBoxes(code: $code) { Task { await verify() } }
-                Text(busy ? (turningOn ? "Включаем…" : "Выключаем…") : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
-            } else {
-                ProgressView().frame(maxWidth: .infinity)
+            CodeBoxes(code: $code) { Task { await verify() } }
+            Text(busy ? (turningOn ? "Включаем…" : "Выключаем…") : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
+        } else {
+            Text(turningOn ? "Раз в 30 дней при входе попросим код из письма. Сначала подтвердим кодом, что почта ваша."
+                           : "Подтвердите кодом из письма, и при входе код спрашивать перестанем.")
+                .font(.subheadline).foregroundStyle(Theme.muted)
+            Text("Пришлём код на \(store.profile?.email ?? "").").font(.footnote).foregroundStyle(Theme.muted)
+        }
+        if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+        if !sent {
+            Button { Task { await send() } } label: {
+                if busy { ProgressView().tint(.white) } else { Text("Отправить код") }
             }
-            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-            Button("Отмена") { dismiss() }.frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
-            Spacer(minLength: 0)
+            .buttonStyle(PrimaryButtonStyle()).disabled(busy)
         }
-        .padding(20).background(Theme.card)
-        .task {
-            do { try await EmailCode.send(); sent = true } catch { self.error = "Не удалось отправить код: \(error.localizedDescription)" }
-        }
+        Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+    }
+
+    private func send() async {
+        busy = true; defer { busy = false }; error = nil
+        do { try await EmailCode.send(); withAnimation(.snappy) { sent = true } }
+        catch { self.error = "Не удалось отправить код: \(error.localizedDescription)" }
     }
 
     private func verify() async {
         busy = true; defer { busy = false }
         if await EmailCode.verify(code) {
             await store.setTwoFactor(turningOn)
-            dismiss()
+            close()
         } else { error = "Код не подошёл. Проверьте письмо."; code = "" }
     }
 }

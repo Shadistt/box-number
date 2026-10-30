@@ -8,19 +8,20 @@ struct Profile: Codable, Hashable {
     var firstName: String
     var lastName: String
     var email: String
-    var avatar: String          // "preset:<name>" или ключ R2 "avatars/<uid>.jpg"
+    var avatar: String          // "preset:<name>" или "photo" (своё фото)
+    var photo: String?          // ключ R2 "avatars/<uid>.jpg", остаётся и при выбранном пресете
     var locale: String
     var twoFactor: Bool
     var twoFactorVerifiedAt: Date?
     enum CodingKeys: String, CodingKey {
-        case id, email, avatar, locale
+        case id, email, avatar, photo, locale
         case firstName = "first_name", lastName = "last_name"
         case twoFactor = "two_factor", twoFactorVerifiedAt = "two_factor_verified_at"
     }
-    static let columns = "id,first_name,last_name,email,avatar,locale,two_factor,two_factor_verified_at"
+    static let columns = "id,first_name,last_name,email,avatar,photo,locale,two_factor,two_factor_verified_at"
 
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
-    var hasCustomAvatar: Bool { avatar.hasPrefix("avatars/") }
+    var hasCustomAvatar: Bool { avatar == "photo" && photo != nil }
     /// Двухфакторная проверка нужна, если включена и последняя была больше 30 дней назад.
     var needsTwoFactorCheck: Bool {
         guard twoFactor else { return false }
@@ -58,9 +59,9 @@ final class ProfileStore {
             let p: Profile = try await supabase.from("profiles").select(Profile.columns).eq("id", value: uid).single().execute().value
             profile = p
             loaded = true
-            if p.hasCustomAvatar, avatarImage == nil {
-                if let img = UIImage(contentsOfFile: Self.avatarFile.path) { avatarImage = img } else { await fetchAvatar(key: p.avatar) }
-            } else if !p.hasCustomAvatar { avatarImage = nil }
+            if let key = p.photo, avatarImage == nil {
+                if let img = UIImage(contentsOfFile: Self.avatarFile.path) { avatarImage = img } else { await fetchAvatar(key: key) }
+            } else if p.photo == nil { avatarImage = nil }
         } catch { print("profile load:", error) }
         await loadUsage()
         await loadIdentities()
@@ -101,11 +102,25 @@ final class ProfileStore {
         } catch { print("profile update:", error) }
     }
 
-    func setPreset(_ name: String) async {
+    /// Выбрать аватарку: пресет или "photo" (своё фото остаётся в карусели, пока его не удалили).
+    func setAvatar(_ value: String) async {
+        guard var p = profile, p.avatar != value else { return }
+        p.avatar = value; profile = p
+        do { try await supabase.from("profiles").update(["avatar": value]).eq("id", value: p.id).execute() } catch { print("avatar:", error) }
+    }
+    func setPreset(_ name: String) async { await setAvatar("preset:\(name)") }
+
+    func deletePhoto() async {
         guard var p = profile else { return }
-        p.avatar = "preset:\(name)"; profile = p; avatarImage = nil
+        p.photo = nil; if p.avatar == "photo" { p.avatar = "preset:box" }
+        profile = p; avatarImage = nil
         try? FileManager.default.removeItem(at: Self.avatarFile)
-        do { try await supabase.from("profiles").update(["avatar": p.avatar]).eq("id", value: p.id).execute() } catch { print("avatar:", error) }
+        do {
+            try await supabase.functions.invoke("avatar-url", options: .init(body: ["op": "delete"]))
+            // AnyJSON.null — чтобы в запрос ушёл явный null (Optional nil ключ просто пропускает)
+            let patch: [String: AnyJSON] = ["photo": .null, "avatar": .string(p.avatar)]
+            try await supabase.from("profiles").update(patch).eq("id", value: p.id).execute()
+        } catch { print("photo delete:", error) }
     }
 
     /// Своё фото: квадрат 512 px → R2 по подписанной ссылке → profiles.avatar = ключ.
@@ -121,8 +136,8 @@ final class ProfileStore {
         req.httpMethod = "PUT"; req.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         let (_, resp) = try await URLSession.shared.upload(for: req, from: data)
         guard (resp as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) == true else { throw URLError(.badServerResponse) }
-        p.avatar = t.key; profile = p
-        try await supabase.from("profiles").update(["avatar": t.key]).eq("id", value: p.id).execute()
+        p.photo = t.key; p.avatar = "photo"; profile = p
+        try await supabase.from("profiles").update(["avatar": "photo", "photo": t.key]).eq("id", value: p.id).execute()
     }
 
     private func fetchAvatar(key: String) async {
