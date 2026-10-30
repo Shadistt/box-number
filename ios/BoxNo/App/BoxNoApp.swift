@@ -9,6 +9,8 @@ struct BoxNoApp: App {
         WindowGroup {
             RootView()
                 .environment(session)
+                .preferredColorScheme(.light)
+                .tint(Theme.ink)
                 .task { session.start() }
                 .onOpenURL { url in
                     // Возврат из Google Sign-In или из письма со ссылкой.
