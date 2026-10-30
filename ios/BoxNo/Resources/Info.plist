@@ -18,10 +18,12 @@
   <key>NSCameraUsageDescription</key><string>Камера нужна, чтобы снимать вещи в коробках и номер на коробке.</string>
   <key>NSPhotoLibraryUsageDescription</key><string>Чтобы выбрать фото профиля из галереи.</string>
   <key>NSContactsUsageDescription</key><string>Чтобы пригласить людей из контактов.</string>
+  <key>GIDClientID</key><string>1076074844899-vvmmnaf81dsf0phgdu71pr80cvhaobva.apps.googleusercontent.com</string>
   <key>CFBundleURLTypes</key>
-  <array><dict>
-    <key>CFBundleURLSchemes</key><array><string>boxno</string></array>
-  </dict></array>
+  <array>
+    <dict><key>CFBundleURLSchemes</key><array><string>boxno</string></array></dict>
+    <dict><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.1076074844899-vvmmnaf81dsf0phgdu71pr80cvhaobva</string></array></dict>
+  </array>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict>
 </plist>

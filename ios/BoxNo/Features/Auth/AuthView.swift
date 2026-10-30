@@ -1,6 +1,7 @@
 import SwiftUI
 import AuthenticationServices
 import Supabase
+import GoogleSignIn
 
 /// Главный экран входа: Apple, Google, email.
 struct AuthView: View {
@@ -53,9 +54,22 @@ struct AuthView: View {
         } catch { self.error = error.localizedDescription }
     }
 
+    /// Нативный Google Sign-In → id_token → Supabase.
     private func signInGoogle() async {
+        guard let root = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController }).first else { return }
         do {
-            try await supabase.auth.signInWithOAuth(provider: .google, redirectTo: AppConfig.redirectURL)
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: AppConfig.googleClientID)
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: root)
+            guard let idToken = result.user.idToken?.tokenString else { throw AuthError.noToken }
+            try await supabase.auth.signInWithIdToken(credentials: .init(
+                provider: .google, idToken: idToken, accessToken: result.user.accessToken.tokenString))
+        } catch let e as GIDSignInError where e.code == .canceled {
+            // пользователь закрыл окно — не ошибка
         } catch { self.error = error.localizedDescription }
+    }
+
+    enum AuthError: LocalizedError {
+        case noToken
+        var errorDescription: String? { "Google не вернул токен" }
     }
 }

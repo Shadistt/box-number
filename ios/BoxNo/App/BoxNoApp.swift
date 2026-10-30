@@ -1,4 +1,5 @@
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct BoxNoApp: App {
@@ -10,7 +11,8 @@ struct BoxNoApp: App {
                 .environment(session)
                 .task { session.start() }
                 .onOpenURL { url in
-                    // Возврат из Apple/Google или из письма с кодом/ссылкой.
+                    // Возврат из Google Sign-In или из письма со ссылкой.
+                    if GIDSignIn.sharedInstance.handle(url) { return }
                     Task { try? await supabase.auth.session(from: url) }
                 }
         }
