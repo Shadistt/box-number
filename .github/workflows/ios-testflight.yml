@@ -39,19 +39,21 @@ jobs:
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO build | xcpretty
 
+      # Архив и отправка в TestFlight — только по ручному запуску (релиз по команде).
+      # Push в main делает только проверку компиляции выше.
       - name: App Store Connect key
-        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
+        if: github.event_name == 'workflow_dispatch' && env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$APP_STORE_CONNECT_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
 
       - name: Build number
-        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
+        if: github.event_name == 'workflow_dispatch' && env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           cd ios && sed -i '' "s/CURRENT_PROJECT_VERSION: \"[0-9]*\"/CURRENT_PROJECT_VERSION: \"${{ github.run_number }}\"/" project.yml && xcodegen generate
 
       - name: Archive
-        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
+        if: github.event_name == 'workflow_dispatch' && env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           set -o pipefail
           cd ios && mkdir -p build
@@ -63,7 +65,7 @@ jobs:
             archive 2>&1 | tee build/archive.log | xcpretty || { echo "::group::archive.log (tail)"; grep -iE "error|fail|warning: no|profile|signing" build/archive.log | tail -40; echo "::endgroup::"; exit 1; }
 
       - name: Export & upload
-        if: env.APP_STORE_CONNECT_API_KEY_ID != ''
+        if: github.event_name == 'workflow_dispatch' && env.APP_STORE_CONNECT_API_KEY_ID != ''
         run: |
           cd ios
           cat > ExportOptions.plist <<EOF

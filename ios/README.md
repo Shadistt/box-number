@@ -28,7 +28,7 @@ SwiftUI · iOS 17+ · Supabase Swift SDK. Язык Swift 5 (строгая пр�
 
 ## TestFlight
 
-Каждый push в `main`, который меняет `ios/`, собирает архив на GitHub Actions и отправляет его в TestFlight (`.github/workflows/ios-testflight.yml`). Номер сборки = номер запуска.
+Push в `main` запускает только проверку компиляции. Сборка и отправка в TestFlight — по ручному запуску workflow «iOS → TestFlight» (релиз по команде). Номер сборки = номер запуска.
 
 Нужны секреты репозитория (Settings → Secrets and variables → Actions):
 - `ASC_KEY_ID` — Key ID ключа App Store Connect API

@@ -125,28 +125,31 @@ struct PlacesView: View {
         LazyVStack(alignment: .leading, spacing: 14) {
             ForEach(filtered) { p in
                 let its = store.items(of: p.id)
-                VStack(alignment: .leading, spacing: 8) {
-                    Button { open = PlaceRef(id: p.id) } label: {
+                Button { open = PlaceRef(id: p.id) } label: {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 10) {
                             Image(systemName: p.kind.symbol).font(.system(size: 18, weight: .semibold))
                             Text("№ \(p.number) · \(p.displayTitle)").font(.system(size: 16, weight: .bold)).lineLimit(1)
                             Spacer()
                             Text(Plural.things(its.count)).font(.footnote).foregroundStyle(Theme.muted)
                         }
-                    }.buttonStyle(.plain)
-                    if its.isEmpty {
-                        Text("Пока пусто").font(.footnote).foregroundStyle(Theme.muted).padding(.leading, 28)
-                    } else {
-                        ForEach(its) { it in
-                            HStack(spacing: 10) {
-                                ItemThumb(item: it, size: 36)
-                                Text(it.title).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
-                                Spacer()
+                        if its.isEmpty {
+                            Text("Пока пусто").font(.footnote).foregroundStyle(Theme.muted).padding(.leading, 28)
+                        } else {
+                            ForEach(its) { it in
+                                HStack(spacing: 10) {
+                                    ItemThumb(item: it, size: 36)
+                                    Text(it.title).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
+                                    Spacer()
+                                }
                             }
                         }
                     }
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+                    .contentShape(RoundedRectangle(cornerRadius: 18))
                 }
-                .padding(14).background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+                .buttonStyle(.plain)
             }
         }
     }
