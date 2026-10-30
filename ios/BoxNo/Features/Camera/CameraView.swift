@@ -10,6 +10,7 @@ struct CameraView: View {
     @State private var toast: Toast? = nil
     @State private var lastItem: UUID? = nil
     @State private var shots = 0
+    @State private var lastThumb: UIImage? = nil
     @State private var busy = false
 
     struct Toast: Equatable { var text: String; var undo: Bool }
@@ -57,13 +58,32 @@ struct CameraView: View {
                     .padding(.horizontal, 16).padding(.bottom, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                Button { Task { await shoot() } } label: {
-                    ZStack {
-                        Circle().strokeBorder(.white, lineWidth: 4).frame(width: 78, height: 78)
-                        Circle().fill(.white).frame(width: 64, height: 64).scaleEffect(busy ? 0.85 : 1)
+                ZStack {
+                    Button { Task { await shoot() } } label: {
+                        ZStack {
+                            Circle().strokeBorder(.white, lineWidth: 4).frame(width: 78, height: 78)
+                            Circle().fill(.white).frame(width: 64, height: 64).scaleEffect(busy ? 0.85 : 1)
+                        }
                     }
+                    .disabled(granted != true || busy)
+                    HStack {
+                        if let lastThumb {
+                            Button { dismiss() } label: {
+                                Image(uiImage: lastThumb).resizable().scaledToFill()
+                                    .frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.8), lineWidth: 1.5))
+                                    .overlay(alignment: .topTrailing) {
+                                        Text("\(shots)").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.ink)
+                                            .padding(.horizontal, 6).frame(height: 20).background(Theme.accent, in: Capsule())
+                                            .offset(x: 8, y: -8)
+                                    }
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                        Spacer()
+                    }
+                    .padding(.leading, 28)
                 }
-                .disabled(granted != true || busy)
                 .padding(.bottom, 36)
             }
         }
@@ -90,6 +110,7 @@ struct CameraView: View {
             let caption = await Captioner.caption(image)
             try await store.addItem(to: placeId, title: caption, source: .ai, id: id)
             shots += 1; lastItem = id
+            withAnimation(.snappy) { lastThumb = UIImage(data: saved.thumb) }
             toast = Toast(text: caption, undo: true)
             Task.detached { await PhotoStore.upload(id, photo: saved.photo, thumb: saved.thumb, store: store) }
             try? await Task.sleep(for: .seconds(3))
@@ -104,6 +125,7 @@ struct CameraView: View {
     private func undo() async {
         guard let id = lastItem else { return }
         toast = nil; lastItem = nil; shots = max(0, shots - 1)
+        if shots == 0 { lastThumb = nil }
         try? await store.deleteItem(id)
     }
 }

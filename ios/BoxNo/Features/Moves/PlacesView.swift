@@ -84,7 +84,7 @@ struct PlacesView: View {
 
     @ViewBuilder
     private var grid: some View {
-        if store.places.isEmpty && !store.loading {
+        if store.places.isEmpty && store.loaded && !store.loading {
             VStack(spacing: 8) {
                 Image(systemName: "shippingbox").font(.system(size: 40)).foregroundStyle(Theme.muted)
                 Text("Мест пока нет").font(.headline)

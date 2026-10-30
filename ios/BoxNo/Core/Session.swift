@@ -17,7 +17,7 @@ final class SessionStore {
             for await (event, session) in supabase.auth.authStateChanges {
                 switch event {
                 case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
-                    if let s = session {
+                    if let s = session, !(event == .initialSession && s.isExpired) {
                         let isNew = event == .signedIn && (s.user.createdAt.timeIntervalSinceNow > -120)
                         state = .signedIn(userID: s.user.id, isNew: isNew)
                     } else {

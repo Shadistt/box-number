@@ -11,6 +11,7 @@ final class PlacesStore {
     var places: [Place] = []
     var items: [UUID: [Item]] = [:]          // place_id → вещи
     var loading = false
+    var loaded = false
     var error: String?
 
     init(move: Move, destinations: [MoveDestination]) {
@@ -40,6 +41,7 @@ final class PlacesStore {
             destinations = try await supabase.from("move_destinations").select()
                 .eq("move_id", value: move.id.uuidString).is("deleted_at", value: nil)
                 .order("position").execute().value
+            loaded = true
         } catch { self.error = error.localizedDescription }
     }
 
