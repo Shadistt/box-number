@@ -37,3 +37,10 @@ print(f"\n== Отчёты о сбоях: {len(crashes['data'])}")
 for i, c in enumerate(crashes["data"], 1):
     a = c["attributes"]
     print(f"#{i} {a.get('createdDate')} · {a.get('deviceModel')} iOS {a.get('osVersion')} · {a.get('comment')}")
+
+# ---- сертификаты (чтобы видеть, что накопил CI) ----
+certs = get("/v1/certificates", **{"limit": 200})
+print(f"\n== Сертификаты: {len(certs['data'])}")
+for c in certs["data"]:
+    a = c["attributes"]
+    print(f"{c['id']} · {a.get('certificateType')} · {a.get('name')} · {a.get('displayName')} · до {a.get('expirationDate','')[:10]}")
