@@ -19,7 +19,7 @@ final class MovesStore {
         loading = true; defer { loading = false }
         do {
             moves = try await supabase.from("moves").select()
-                .is("deleted_at", value: nil).order("created_at", ascending: false)
+                .is("deleted_at", value: nil).order("position").order("created_at", ascending: false)
                 .execute().value
             let dests: [MoveDestination] = try await supabase.from("move_destinations").select()
                 .is("deleted_at", value: nil).order("position").execute().value
@@ -32,6 +32,18 @@ final class MovesStore {
             loaded = true
             saveCache()
         } catch { self.error = error.localizedDescription }
+    }
+
+    /// Ручной порядок карточек: позиции 0…n по текущему массиву.
+    func reorder(_ ids: [UUID]) async {
+        var byId = Dictionary(uniqueKeysWithValues: moves.map { ($0.id, $0) })
+        for (i, id) in ids.enumerated() { byId[id]?.position = i }
+        moves = ids.compactMap { byId[$0] } + moves.filter { !ids.contains($0.id) }
+        saveCache()
+        for (i, id) in ids.enumerated() {
+            do { try await supabase.from("moves").update(["position": i]).eq("id", value: id.uuidString).execute() }
+            catch { print("reorder:", error) }
+        }
     }
 
     // MARK: кеш главного экрана — чтобы карточки были на месте сразу при запуске

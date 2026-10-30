@@ -8,8 +8,9 @@ struct Move: Codable, Identifiable, Hashable {
     var fromCity: String
     var status: String
     var nextNumber: Int
+    var position: Int = 0
     var createdAt: Date
-    enum CodingKeys: String, CodingKey { case id, title, status
+    enum CodingKeys: String, CodingKey { case id, title, status, position
         case ownerId = "owner_id", fromCity = "from_city", nextNumber = "next_number", createdAt = "created_at" }
 }
 
