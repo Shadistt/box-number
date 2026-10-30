@@ -27,8 +27,13 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     }
 
     /// Перезапуск: нужен, когда к уже идущей сессии подключили новый слой превью и он не получил поток.
+    private var lastRestart = Date.distantPast
+
+    /// Не чаще раза в 5 секунд: перезапуск сам по себе даёт рывок превью.
     func restart() {
         queue.async { [self] in
+            guard Date().timeIntervalSince(lastRestart) > 5 else { return }
+            lastRestart = Date()
             if !configured { configure() }
             guard configured else { return }
             if session.isRunning { session.stopRunning() }
