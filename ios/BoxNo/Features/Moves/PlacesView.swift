@@ -41,6 +41,7 @@ struct PlacesView: View {
                     Color.clear.frame(height: 110)
                 }
                 .scrollIndicators(.hidden)
+                .refreshable { await store.load() }
             }
             .padding(.horizontal, 16)
 
@@ -50,7 +51,6 @@ struct PlacesView: View {
         .background(Theme.bg)
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
-        .refreshable { await store.load() }
         .sheet(isPresented: $showTypePicker) {
             TypePickerView { kind, custom in Task { await create(kind, custom) } }
         }
@@ -78,7 +78,8 @@ struct PlacesView: View {
             }
             .padding(.horizontal, 16)
         }
-        .scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical]).scrollClipDisabled(false)
+        .scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
+        .environment(\.refresh, nil)
         .padding(.horizontal, -16).frame(height: 36)
     }
 
