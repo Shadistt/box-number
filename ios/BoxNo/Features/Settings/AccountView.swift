@@ -242,13 +242,14 @@ struct AvatarCarousel: View {
         GeometryReader { g in
             let mid = g.frame(in: .global).midX
             let screenMid = UIScreen.main.bounds.midX
-            let k = min(1, abs(mid - screenMid) / (big + 12))
-            let scale = 1 - 0.4 * k
+            let k: CGFloat = min(1, abs(mid - screenMid) / (big + 12))
+            let scale: CGFloat = 1 - 0.4 * k
+            let alpha: Double = 1 - 0.35 * Double(k)
             content()
                 .frame(width: big, height: big).clipShape(Circle())
                 .overlay(Circle().stroke(Theme.ink, lineWidth: k < 0.3 ? 3 : 0))
                 .scaleEffect(scale)
-                .opacity(1 - 0.35 * k)
+                .opacity(alpha)
         }
         .frame(width: big, height: big)
         .id(id)
