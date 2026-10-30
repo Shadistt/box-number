@@ -57,14 +57,21 @@ struct AuthView: View {
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) async {
-        guard case .success(let auth) = result,
-              let cred = auth.credential as? ASAuthorizationAppleIDCredential,
+        let auth: ASAuthorization
+        switch result {
+        case .success(let a): auth = a
+        case .failure(let e):
+            // Отмену не показываем; остальное — на экран, чтобы было видно причину (например, 1000 — нет entitlement).
+            if (e as? ASAuthorizationError)?.code == .canceled { return }
+            error = "Apple: \(e.localizedDescription) (\((e as NSError).code))"; return
+        }
+        guard let cred = auth.credential as? ASAuthorizationAppleIDCredential,
               let tokenData = cred.identityToken,
-              let token = String(data: tokenData, encoding: .utf8) else { return }
+              let token = String(data: tokenData, encoding: .utf8) else { error = "Apple не вернул токен"; return }
         busy = true; defer { busy = false }
         do {
             try await supabase.auth.signInWithIdToken(credentials: .init(provider: .apple, idToken: token, nonce: appleNonce))
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = "Apple: \(error.localizedDescription)" }
     }
 
     /// Нативный Google Sign-In → id_token → Supabase.

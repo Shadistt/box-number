@@ -42,6 +42,7 @@ struct PlaceView: View {
                 Menu {
                     Button { showEdit = true } label: { Label("Изменить место", systemImage: "pencil") }
                     Button { showDest = true } label: { Label("Куда едет", systemImage: "mappin.and.ellipse") }
+                        .disabled(place?.status != .open)   // у запакованной коробки направление не меняют
                     Button {} label: { Label("Отправить как посылку", systemImage: "paperplane") }.disabled(true)
                     Divider()
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Удалить место", systemImage: "trash") }
@@ -223,6 +224,7 @@ struct PlaceView: View {
     }
 
     private func toggleLock(_ p: Place) async {
+        titleFocused = false          // клавиатура от названия не должна оставаться под диалогом
         switch p.status {
         case .open:
             guard p.destinationId != nil else {

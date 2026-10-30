@@ -14,7 +14,9 @@ struct StatusBarView: View {
     let onLock: () -> Void
 
     private var needDest: Bool { place.destinationId == nil }
-    private var isOpen: Bool { expanded || needDest }
+    /// Менять направление можно только у открытого места: запакованную коробку сначала распаковывают.
+    private var canChange: Bool { place.status == .open }
+    private var isOpen: Bool { canChange && (expanded || needDest) }
     private var packed: Bool { place.status == .packed }
     private var allTaken: Bool { place.status == .unpacking && itemsCount > 0 && takenCount == itemsCount }
     private var done: Bool { place.status == .done }
@@ -27,14 +29,14 @@ struct StatusBarView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Button {
-                    guard !needDest else { return }
+                    guard !needDest, canChange else { return }
                     withAnimation(.snappy) { expanded.toggle() }
                 } label: {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
                             Text(isOpen ? "Куда едет?" : "Едет в \(destName)")
                                 .font(.system(size: 17, weight: .bold)).lineLimit(1).truncationMode(.tail)
-                            if !needDest {
+                            if !needDest && canChange {
                                 Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold))
                                     .rotationEffect(.degrees(isOpen ? 180 : 0))
                             }

@@ -22,10 +22,10 @@ struct ForgotPasswordView: View {
             } else {
                 Text("Забыли пароль?").font(.system(size: 32, weight: .heavy))
                 Text("Пришлём ссылку для нового пароля на email аккаунта.").foregroundStyle(Theme.muted)
-                TextField("you@example.com", text: $email)
-                    .keyboardType(.emailAddress).textInputAutocapitalization(.never)
-                    .padding(.horizontal, 16).frame(height: 54)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                LabeledField("Email") {
+                    TextField("", text: $email).keyboardType(.emailAddress).textContentType(.emailAddress)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                }
                 Button("Отправить ссылку") { Task { await send() } }.buttonStyle(PrimaryButtonStyle())
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                 Spacer()

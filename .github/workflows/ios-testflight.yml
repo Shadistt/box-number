@@ -63,6 +63,11 @@ jobs:
             -destination 'generic/platform=iOS' -archivePath build/BoxNo.xcarchive \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             archive 2>&1 | tee build/archive.log | xcpretty || { echo "::group::archive.log (tail)"; grep -iE "error|fail|warning: no|profile|signing" build/archive.log | tail -40; echo "::endgroup::"; exit 1; }
+          # У неподписанного архива нет entitlements (Sign in with Apple!), а экспорт берёт их из подписи приложения.
+          # Поэтому подписываем ad-hoc с нашим файлом entitlements — экспорт переподпишет, но права сохранит.
+          APP=build/BoxNo.xcarchive/Products/Applications/BoxNo.app
+          codesign --force --sign - --entitlements BoxNo/Resources/BoxNo.entitlements "$APP"
+          echo "::group::entitlements в архиве"; codesign -d --entitlements :- "$APP" 2>/dev/null | head -20; echo "::endgroup::"
 
       - name: Export & upload
         if: github.event_name == 'workflow_dispatch' && env.APP_STORE_CONNECT_API_KEY_ID != ''
