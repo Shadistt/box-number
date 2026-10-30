@@ -1,0 +1,20 @@
+name: ASC maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "revoke-ci-certs"
+        default: "revoke-ci-certs"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install "pyjwt[crypto]"
+      - run: python scripts/asc_revoke_ci_certs.py
