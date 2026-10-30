@@ -165,7 +165,8 @@ struct ItemCardView: View {
             .confirmationDialog("Удалить вещь?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) { Task { try? await store.deleteItem(item.id); dismiss() } }
             }
-            .sheet(isPresented: $showMove) {
+            // Во весь экран, а не sheet поверх sheet'а — без «стопки окон» сзади.
+            .fullScreenCover(isPresented: $showMove) {
                 MoveItemView(store: store, item: item) { dismiss() }
             }
             .fullScreenCover(item: $editPhoto) { p in
@@ -195,27 +196,62 @@ struct MoveItemView: View {
     let item: Item
     let onDone: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var selected: UUID? = nil
+    @State private var busy = false
+
+    private var target: Place? { selected.flatMap { store.place($0) } }
+    private var changed: Bool { selected != nil && selected != item.placeId }
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(store.places.filter { $0.id != item.placeId }) { p in
-                    Button {
-                        Task { try? await store.updateItem(item.id, placeId: p.id); dismiss(); onDone() }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: p.kind.symbol)
-                            VStack(alignment: .leading) {
-                                Text("№ \(p.number) · \(p.displayTitle)").foregroundStyle(p.status == .open ? Theme.ink : Theme.muted)
-                                Text(p.status == .open ? Plural.things(store.items(of: p.id).count) : "Запаковано").font(.caption).foregroundStyle(Theme.muted)
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(store.places.enumerated()), id: \.element.id) { i, p in
+                        let open = p.status == .open
+                        Button { if open { selected = p.id } } label: {
+                            HStack(spacing: 12) {
+                                // Галочка как в «Куда едет»; текущее место отмечено с самого начала.
+                                Image(systemName: selected == p.id ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 22)).foregroundStyle(selected == p.id ? Theme.accent : Theme.line)
+                                Image(systemName: p.kind.symbol).font(.system(size: 17, weight: .semibold))
+                                    .frame(width: 28)          // одинаковая ширина — текст начинается в одну линию
+                                    .foregroundStyle(open ? Theme.ink : Theme.muted)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("№ \(p.number) · \(p.displayTitle)").font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(open ? Theme.ink : Theme.muted).lineLimit(1)
+                                    Text(p.id == item.placeId ? "Лежит здесь" : open ? Plural.things(store.items(of: p.id).count) : "Запаковано")
+                                        .font(.caption).foregroundStyle(Theme.muted)
+                                }
+                                Spacer()
                             }
+                            .padding(.horizontal, 16).frame(minHeight: 56)
+                            .overlay(alignment: .top) { if i > 0 { Divider().padding(.leading, 56) } }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .disabled(!open)
                     }
-                    .disabled(p.status != .open)
                 }
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+                .padding(16)
+                .padding(.bottom, 80)
+            }
+            .background(Theme.bg)
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    guard let selected else { return }
+                    busy = true
+                    Task { try? await store.updateItem(item.id, placeId: selected); busy = false; dismiss(); onDone() }
+                } label: {
+                    if busy { ProgressView().tint(.white) }
+                    else { Text(target.map { "Переложить в № \($0.number)" } ?? "Переложить") }
+                }
+                .buttonStyle(PrimaryButtonStyle()).disabled(!changed || busy).opacity(changed ? 1 : 0.5)
+                .padding(16).background(Theme.bg)
             }
             .navigationTitle("Переложить в").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } } }
+            .onAppear { selected = item.placeId }
         }
     }
 }

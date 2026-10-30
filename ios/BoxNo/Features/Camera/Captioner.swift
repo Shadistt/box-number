@@ -15,8 +15,18 @@ enum Captioner {
     static func candidates(_ image: UIImage) async -> [String] {
         let subject = await focusOnSubject(image)
         let clip = await ClipCaptioner.shared.candidates(subject)
-        if !clip.isEmpty { return clip.map(\.title) }
-        return await visionCandidates(subject)
+        if !clip.isEmpty { return dedupe(clip.map(\.title)) }
+        return dedupe(await visionCandidates(subject))
+    }
+
+    /// «Настольная лампа» и «Лампа настольная» — одно и то же: сравниваем по набору слов без регистра, оставляем первое.
+    static func dedupe(_ titles: [String]) -> [String] {
+        var seen = Set<String>(), out: [String] = []
+        for t in titles {
+            let key = t.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).sorted().joined(separator: " ")
+            if seen.insert(key).inserted { out.append(t) }
+        }
+        return out
     }
 
     /// Объектная заметность (Vision, на устройстве): рамка самого заметного предмета → вырезка с полями.

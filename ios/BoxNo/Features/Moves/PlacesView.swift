@@ -97,7 +97,9 @@ struct PlacesView: View {
             }
             .padding(.horizontal, 16)
         }
-        .scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.always, axes: .horizontal)      // лёгкий «люфт» при потягивании
+        .scrollBounceBehavior(.basedOnSize, axes: .vertical)   // по вертикали — не двигается
         .padding(.horizontal, -16).frame(height: 36)
     }
 
@@ -210,6 +212,11 @@ struct PlaceTile: View {
                             .padding(.horizontal, 8).padding(.vertical, 4)
                             .background(.white, in: Capsule()).foregroundStyle(Theme.ink)
                             .frame(maxWidth: 110, alignment: .trailing)
+                    } else if place.status == .open {
+                        // Направление не выбрано — отдельная метка, чтобы было видно, что место «ничьё».
+                        Label("Куда?", systemImage: "questionmark").font(.caption2.weight(.bold)).lineLimit(1)
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Theme.accent.opacity(0.18), in: Capsule()).foregroundStyle(Theme.accent)
                     }
                 }.padding(8)
             }
