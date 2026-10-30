@@ -98,6 +98,7 @@ struct ItemCardView: View {
     @State private var title = ""
     @State private var showMove = false
     @State private var confirmDelete = false
+    @State private var suggestions: [String] = []
 
     private var place: Place? { store.place(item.placeId) }
     private var editable: Bool { place?.status == .open }
@@ -113,6 +114,15 @@ struct ItemCardView: View {
                             .padding(14).background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                             .disabled(!editable)
                             .onSubmit(save)
+                        if editable && !suggestions.isEmpty {
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 8) {
+                                    ForEach(suggestions, id: \.self) { s in
+                                        Chip(title: s, selected: s == title.trimmingCharacters(in: .whitespaces)) { title = s; save() }
+                                    }
+                                }
+                            }.scrollIndicators(.hidden)
+                        }
                         if item.captionSource == .ai { Text("Подпись предложена автоматически — исправьте, если неточно.").font(.caption).foregroundStyle(Theme.muted) }
                     }
                     if let place {
@@ -135,6 +145,9 @@ struct ItemCardView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Готово") { save(); dismiss() } }
             }
             .onAppear { title = item.title }
+            .task {
+                if editable, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
+            }
             .confirmationDialog("Удалить вещь?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) { Task { try? await store.deleteItem(item.id); dismiss() } }
             }

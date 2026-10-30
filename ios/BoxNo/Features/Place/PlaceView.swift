@@ -17,6 +17,7 @@ struct PlaceView: View {
     @State private var toast: String? = nil
     @State private var shakes: CGFloat = 0
     @FocusState private var titleFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
 
     enum Mode: String, CaseIterable { case photos = "Фото", list = "Список" }
 
@@ -42,6 +43,8 @@ struct PlaceView: View {
             }
         }
         .onAppear { title = place?.title ?? "" }
+        .onDisappear { if !showCamera { CameraModel.shared.stop() } }
+        .onChange(of: scenePhase) { _, p in if p == .active { CameraModel.shared.start() } else { CameraModel.shared.stop() } }
         .onChange(of: place?.destinationId) { _, new in if new != nil { barExpanded = false } }
         .onChange(of: showCamera) { _, on in if !on { CameraModel.shared.start() } }
         .fullScreenCover(isPresented: $showCamera) { CameraView(store: store, placeId: placeId) }

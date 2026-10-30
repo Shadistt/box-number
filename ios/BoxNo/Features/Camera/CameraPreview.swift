@@ -53,6 +53,5 @@ struct CameraTile: View {
             granted = await CameraModel.requestAccess()
             if granted && enabled { CameraModel.shared.start() }
         }
-        .onDisappear { CameraModel.shared.stop() }
     }
 }

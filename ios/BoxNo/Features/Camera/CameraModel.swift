@@ -49,7 +49,10 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     func capture() async throws -> Data {
         try await withCheckedThrowingContinuation { cont in
             queue.async { [self] in
+                if !configured { configure() }
+                if configured && !session.isRunning { session.startRunning() }
                 guard configured, session.isRunning else { cont.resume(throwing: CameraError.unavailable); return }
+                if let old = pending { old.resume(throwing: CameraError.busy) }
                 pending = cont
                 let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
                 settings.photoQualityPrioritization = .balanced
@@ -66,7 +69,13 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     }
 
     enum CameraError: LocalizedError {
-        case unavailable, noData
-        var errorDescription: String? { self == .unavailable ? "Камера недоступна" : "Снимок не получился" }
+        case unavailable, noData, busy
+        var errorDescription: String? {
+            switch self {
+            case .unavailable: "Камера недоступна"
+            case .noData: "Снимок не получился"
+            case .busy: "Подождите, предыдущий снимок ещё обрабатывается"
+            }
+        }
     }
 }

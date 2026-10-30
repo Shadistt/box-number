@@ -4,21 +4,29 @@ import UIKit
 /// AI-подпись на устройстве: классификация Vision + словарь на русский. Подпись всегда можно исправить.
 enum Captioner {
     static func caption(_ image: UIImage) async -> String {
-        guard let cg = image.cgImage else { return "Вещь" }
+        await candidates(image).first ?? "Вещь"
+    }
+
+    /// До 5 вариантов подписи по убыванию уверенности. Порог — по точности/полноте модели, а не по «сырой» уверенности:
+    /// у бытовых вещей она часто 0,05–0,2, и строгий порог отбрасывал всё.
+    static func candidates(_ image: UIImage) async -> [String] {
+        guard let cg = image.cgImage else { return [] }
         return await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 let req = VNClassifyImageRequest()
                 let handler = VNImageRequestHandler(cgImage: cg, orientation: cgOrientation(image.imageOrientation))
                 try? handler.perform([req])
-                let results = (req.results ?? []).sorted { $0.confidence > $1.confidence }
-                // Сначала то, что знаем по-русски; потом любое уверенное английское
-                if let hit = results.first(where: { $0.confidence > 0.15 && ru[$0.identifier] != nil }) {
-                    cont.resume(returning: ru[hit.identifier]!)
-                } else if let hit = results.first(where: { $0.confidence > 0.4 }) {
-                    cont.resume(returning: hit.identifier.replacingOccurrences(of: "_", with: " ").capitalized)
-                } else {
-                    cont.resume(returning: "Вещь")
+                let all = (req.results ?? []).sorted { $0.confidence > $1.confidence }
+                let good = all.filter { $0.hasMinimumPrecision(0.1, forRecall: 0.6) }
+                let pool = good.isEmpty ? Array(all.prefix(8)) : good
+                var out: [String] = []
+                // сначала то, что знаем по-русски
+                for r in pool { if let t = ru[r.identifier], !out.contains(t) { out.append(t) } }
+                for r in pool where out.count < 5 {
+                    let t = r.identifier.replacingOccurrences(of: "_", with: " ").capitalized
+                    if ru[r.identifier] == nil, r.confidence > 0.1, !out.contains(t) { out.append(t) }
                 }
+                cont.resume(returning: Array(out.prefix(5)))
             }
         }
     }
@@ -69,6 +77,36 @@ enum Captioner {
         "bicycle": "Велосипед", "helmet": "Шлем", "skateboard": "Скейт", "ski": "Лыжи", "tent": "Палатка", "sleeping_bag": "Спальник",
         "dog": "Вещи собаки", "cat": "Вещи кошки", "food": "Еда", "snack": "Еда", "wine": "Вино", "beer": "Пиво",
         "cat_food": "Корм", "pet_food": "Корм", "leash": "Поводок", "printer": "Принтер", "router": "Роутер",
-        "power_strip": "Удлинитель", "extension_cord": "Удлинитель", "battery": "Батарейки", "flashlight": "Фонарик"
+        "power_strip": "Удлинитель", "extension_cord": "Удлинитель", "battery": "Батарейки", "flashlight": "Фонарик",
+        "tableware": "Посуда", "dish": "Посуда", "dishware": "Посуда", "kitchenware": "Кухонная утварь", "kitchen_utensil": "Кухонная утварь",
+        "cookware": "Посуда для готовки", "tray": "Поднос", "jar": "Банка", "container": "Контейнер", "lid": "Крышка", "thermos": "Термос",
+        "coffee": "Кофе", "tea": "Чай", "spice": "Специи", "grocery": "Продукты", "can": "Консервы", "cereal": "Хлопья",
+        "clothing": "Одежда", "clothes": "Одежда", "apparel": "Одежда", "garment": "Одежда", "hoodie": "Худи", "pajamas": "Пижама",
+        "sock": "Носки", "underwear": "Бельё", "lingerie": "Бельё", "swimsuit": "Купальник", "tie": "Галстук", "suit": "Костюм",
+        "textile": "Текстиль", "fabric": "Ткань", "linen": "Бельё", "quilt": "Одеяло", "duvet": "Одеяло", "mattress": "Матрас",
+        "furniture": "Мебель", "sofa": "Диван", "couch": "Диван", "armchair": "Кресло", "bed": "Кровать", "desk": "Стол", "bookshelf": "Книжная полка",
+        "electronics": "Электроника", "appliance": "Техника", "home_appliance": "Техника", "gadget": "Гаджет", "device": "Устройство",
+        "wire": "Провода", "cord": "Провода", "adapter": "Адаптер", "plug": "Вилка", "earphone": "Наушники", "earbuds": "Наушники",
+        "game_controller": "Геймпад", "console": "Приставка", "video_game": "Видеоигра", "dvd": "Диски", "cd": "Диски", "vinyl": "Пластинки",
+        "stationery": "Канцелярия", "office_supplies": "Канцелярия", "marker": "Маркер", "tape_dispenser": "Скотч", "stapler": "Степлер",
+        "photo": "Фотографии", "photograph": "Фотографии", "album": "Альбом", "poster": "Постер", "map": "Карта", "calendar": "Календарь",
+        "decoration": "Декор", "ornament": "Украшение", "figurine": "Фигурка", "statue": "Статуэтка", "sculpture": "Скульптура",
+        "christmas_tree": "Ёлка", "christmas_decoration": "Ёлочные игрушки", "garland": "Гирлянда", "string_lights": "Гирлянда",
+        "cosmetic": "Косметика", "makeup": "Косметика", "lotion": "Крем", "cream": "Крем", "deodorant": "Дезодорант", "razor": "Бритва",
+        "toiletry": "Гигиена", "toilet_paper": "Туалетная бумага", "tissue": "Салфетки", "detergent": "Моющее средство", "cleaning_product": "Бытовая химия",
+        "sponge": "Губка", "broom": "Веник", "mop": "Швабра", "dustpan": "Совок", "trash_can": "Мусорное ведро",
+        "sports_equipment": "Спортинвентарь", "dumbbell": "Гантели", "yoga_mat": "Коврик", "racket": "Ракетка", "tennis_racket": "Ракетка",
+        "fishing_rod": "Удочка", "golf_club": "Клюшка", "surfboard": "Доска", "snowboard": "Сноуборд", "roller_skate": "Ролики", "scooter": "Самокат",
+        "baby": "Детские вещи", "stroller": "Коляска", "crib": "Кроватка", "pacifier": "Соска", "diaper": "Подгузники", "bottle_baby": "Бутылочка",
+        "pet": "Вещи питомца", "pet_bed": "Лежанка", "collar": "Ошейник", "aquarium": "Аквариум", "cage": "Клетка",
+        "wood": "Дерево", "plank": "Доски", "metal": "Металл", "plastic": "Пластик", "glassware": "Стекло", "ceramic": "Керамика", "porcelain": "Фарфор",
+        "trophy": "Кубок", "medal": "Медаль", "coin": "Монеты", "stamp": "Марки", "key": "Ключи", "keychain": "Брелок", "wallet": "Кошелёк", "purse": "Кошелёк",
+        "passport": "Документы", "card": "Карточки", "money": "Деньги", "cash": "Деньги", "safe": "Сейф",
+        "sewing_machine": "Швейная машинка", "thread": "Нитки", "yarn": "Пряжа", "needle": "Иголки", "button": "Пуговицы",
+        "paint": "Краска", "brush": "Кисти", "paintbrush": "Кисти", "canvas": "Холст", "easel": "Мольберт", "crayon": "Мелки",
+        "instrument": "Инструмент", "musical_instrument": "Музыкальный инструмент", "microphone": "Микрофон", "amplifier": "Усилитель",
+        "wheel": "Колесо", "tire": "Шина", "helmet_bike": "Шлем", "pump": "Насос", "lock": "Замок", "chain": "Цепь",
+        "garden": "Садовое", "garden_tool": "Садовый инструмент", "shovel": "Лопата", "rake": "Грабли", "hose": "Шланг", "watering_can": "Лейка", "seed": "Семена",
+        "person": "Вещь", "people": "Вещь", "hand": "Вещь", "indoor": "Вещь", "room": "Вещь", "floor": "Вещь", "wall": "Вещь", "structure": "Вещь"
     ]
 }
