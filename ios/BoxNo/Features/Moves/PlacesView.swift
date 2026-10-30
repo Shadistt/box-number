@@ -80,23 +80,23 @@ struct PlacesView: View {
         .scrollIndicators(.hidden).padding(.horizontal, -16).contentMargins(.horizontal, 16)
     }
 
+    @ViewBuilder
     private var grid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+        if store.places.isEmpty && !store.loading {
+            VStack(spacing: 8) {
+                Image(systemName: "shippingbox").font(.system(size: 40)).foregroundStyle(Theme.muted)
+                Text("Мест пока нет").font(.headline)
+                Text("Добавьте первую коробку — номер напишите на ней маркером.")
+                    .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+            }.frame(maxWidth: .infinity).padding(.top, 60)
+        } else {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12, alignment: .top), GridItem(.flexible(), spacing: 12, alignment: .top)], spacing: 12) {
             ForEach(filtered) { p in
                 Button { open = PlaceRef(id: p.id) } label: {
                     PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name)
                 }.buttonStyle(.plain)
             }
         }
-        .overlay {
-            if store.places.isEmpty && !store.loading {
-                VStack(spacing: 8) {
-                    Image(systemName: "shippingbox").font(.system(size: 40)).foregroundStyle(Theme.muted)
-                    Text("Мест пока нет").font(.headline)
-                    Text("Добавьте первую коробку — номер напишите на ней маркером.")
-                        .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                }.padding(.top, 80)
-            }
         }
     }
 

@@ -33,8 +33,6 @@ struct NewMoveView: View {
                     ForEach($dests) { $d in
                         let i = dests.firstIndex { $0.id == d.id } ?? 0
                         HStack(spacing: 10) {
-                            Image(systemName: "line.3.horizontal").font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(Color(hex: 0xB9B5AC)).frame(width: 20)
                             Text(i == 0 ? "Куда" : "Куда \(i + 1)").font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(Color(hex: 0x4F5157)).frame(width: 60, alignment: .leading)
                             TextField("Город и/или адрес", text: $d.text)
@@ -47,7 +45,7 @@ struct NewMoveView: View {
                                 }.buttonStyle(.plain)
                             }
                         }
-                        .padding(.leading, 10).padding(.trailing, 8).frame(height: 58)
+                        .padding(.leading, 16).padding(.trailing, 8).frame(height: 58)
                         .background(.white, in: RoundedRectangle(cornerRadius: 16))
                         .listRowSeparator(.hidden).listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
@@ -55,17 +53,16 @@ struct NewMoveView: View {
                     .onMove { dests.move(fromOffsets: $0, toOffset: $1) }
 
                     if dests.count < AppConfig.maxDestinations {
-                        Button { dests.append(Dest()) } label: {
-                            HStack(spacing: 10) {
+                        HStack(spacing: 10) {
                                 Image(systemName: "plus").font(.system(size: 15, weight: .bold))
                                 Text("Ещё направление").font(.system(size: 15, weight: .semibold))
                                 Spacer()
                                 Text("\(dests.count) из \(AppConfig.maxDestinations)").font(.system(size: 12)).foregroundStyle(Theme.muted)
                             }
-                            .foregroundStyle(Theme.ink).padding(.horizontal, 16).frame(height: 48)
-                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: 0xB9B5AC), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
-                        }
-                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.ink).padding(.horizontal, 16).frame(maxWidth: .infinity).frame(height: 48)
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: 0xB9B5AC), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+                        .contentShape(Rectangle())
+                        .onTapGesture { withAnimation(.snappy) { dests.append(Dest()) } }
                         .listRowSeparator(.hidden).listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                         .moveDisabled(true)

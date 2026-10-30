@@ -26,6 +26,7 @@ struct MovesListView: View {
             .padding(.bottom, 20)
         }
         .task { await store.load() }
+        .onAppear { Task { await store.load() } }
         .refreshable { await store.load() }
         .sheet(isPresented: $showNew) { NewMoveView(store: store) }
     }

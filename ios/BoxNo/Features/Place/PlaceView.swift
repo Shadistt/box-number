@@ -42,8 +42,18 @@ struct PlaceView: View {
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
-        .onAppear { title = place?.title ?? "" }
-        .onDisappear { if !showCamera { CameraModel.shared.stop() } }
+        .onAppear {
+            title = place?.title ?? ""
+            // Первое место каждого типа: один раз предлагаем сразу дать название (необязательно)
+            if let p = place, p.title.isEmpty, p.status == .open, items.isEmpty {
+                let key = "named_hint_" + p.kind.rawValue
+                if !UserDefaults.standard.bool(forKey: key) {
+                    UserDefaults.standard.set(true, forKey: key)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { titleFocused = true }
+                }
+            }
+        }
+        .onDisappear { saveTitle(); if !showCamera { CameraModel.shared.stop() } }
         .onChange(of: scenePhase) { _, p in if p == .active { CameraModel.shared.start() } else { CameraModel.shared.stop() } }
         .onChange(of: place?.destinationId) { _, new in if new != nil { barExpanded = false } }
         .onChange(of: showCamera) { _, on in if !on { CameraModel.shared.start() } }
@@ -77,10 +87,12 @@ struct PlaceView: View {
                         withAnimation(.snappy) { barExpanded.toggle() }
                     } label: { BoxTileView(place: place, size: 112) }.buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 6) {
-                        TextField("\(place.kind.title) без названия", text: $title, axis: .vertical)
-                            .font(.system(size: 22, weight: .heavy)).lineLimit(3)
+                        TextField("\(place.kind.title) без названия", text: $title)
+                            .font(.system(size: 22, weight: .heavy)).lineLimit(1)
                             .focused($titleFocused).submitLabel(.done).disabled(!editable)
+                            .onSubmit { saveTitle(); titleFocused = false }
                             .onChange(of: titleFocused) { _, f in if !f { saveTitle() } }
+                            .onChange(of: title) { _, _ in scheduleSave() }
                         Text(subtitle(place)).font(.subheadline).foregroundStyle(Theme.muted)
                     }
                     .padding(.top, 8)
@@ -95,7 +107,7 @@ struct PlaceView: View {
                 Picker("", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) } }.pickerStyle(.segmented)
 
                 if mode == .photos {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 14) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10, alignment: .top), GridItem(.flexible(), spacing: 10, alignment: .top), GridItem(.flexible(), spacing: 10, alignment: .top)], spacing: 14) {
                         CameraTile(enabled: editable) { showCamera = true }
                         ForEach(items) { it in
                             ItemCell(item: it, status: place.status,
@@ -136,6 +148,11 @@ struct PlaceView: View {
         return s
     }
 
+    @State private var saveTask: Task<Void, Never>? = nil
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task { try? await Task.sleep(for: .seconds(1)); if !Task.isCancelled { saveTitle() } }
+    }
     private func saveTitle() {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let p = place, t != p.title else { return }
