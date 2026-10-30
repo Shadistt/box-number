@@ -26,6 +26,16 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         }
     }
 
+    /// Перезапуск: нужен, когда к уже идущей сессии подключили новый слой превью и он не получил поток.
+    func restart() {
+        queue.async { [self] in
+            if !configured { configure() }
+            guard configured else { return }
+            if session.isRunning { session.stopRunning() }
+            session.startRunning()
+        }
+    }
+
     func stop() {
         queue.async { [self] in if session.isRunning { session.stopRunning() } }
     }

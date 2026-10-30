@@ -16,6 +16,12 @@ struct CameraPreview: UIViewRepresentable {
         v.previewLayer.session = session
         v.previewLayer.videoGravity = gravity
         v.backgroundColor = .black
+        // Если слой не получил соединение с сессией (бывает, когда сессия уже идёт) — перезапускаем её.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if v.previewLayer.connection == nil || v.previewLayer.connection?.isEnabled == false {
+                CameraModel.shared.restart()
+            }
+        }
         return v
     }
 

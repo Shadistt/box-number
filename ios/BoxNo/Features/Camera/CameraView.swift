@@ -70,7 +70,8 @@ struct CameraView: View {
         .statusBarHidden()
         .task {
             granted = await CameraModel.requestAccess()
-            if granted == true { CameraModel.shared.start() }
+            // Полный экран всегда поднимает сессию заново: так второй слой превью гарантированно получает кадры.
+            if granted == true { CameraModel.shared.restart() }
         }
         .animation(.snappy, value: toast)
     }
