@@ -205,6 +205,46 @@ struct PlaceView: View {
         }
     }
 
+    private func metaChips(_ p: Place) -> [String] {
+        var c = ["№ \(p.number)", p.kindTitle, Plural.things(items.count)]
+        if p.shared { c.append("Общая") }
+        return c
+    }
+
+    @State private var saveTask: Task<Void, Never>? = nil
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task { try? await Task.sleep(for: .seconds(1)); if !Task.isCancelled { saveTitle() } }
+    }
+    private func saveTitle() {
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let p = place, t != p.title else { return }
+        Task { try? await store.updatePlace(placeId, title: t) }
+    }
+
+    private func toggleLock(_ p: Place) async {
+        switch p.status {
+        case .open:
+            guard p.destinationId != nil else {
+                withAnimation(.snappy) { barExpanded = true }
+                withAnimation(.linear(duration: 0.4)) { shakes += 1 }; return
+            }
+            withAnimation(.snappy) { showPackCard = true }
+        case .packed: lockDialog = .packed
+        case .unpacking: lockDialog = .unpacking
+        case .done: lockDialog = .done
+        }
+    }
+
+    private func setStatus(_ next: PlaceStatus, toast text: String) {
+        Task {
+            do { try await store.updatePlace(placeId, status: next); show(text) }
+            catch { show(error.localizedDescription) }
+        }
+    }
+
+    private var allTaken: Bool { !items.isEmpty && items.allSatisfy(\.isTaken) }
+
     private var lockTitle: String {
         guard let p = place else { return "" }
         switch lockDialog {
