@@ -231,7 +231,7 @@ struct AvatarCarousel: View {
                 .scrollTargetLayout()
             }
             .safeAreaPadding(.horizontal, side)
-            .scrollTargetBehavior(.viewAligned)
+            .scrollTargetBehavior(.viewAligned(anchor: .center))   // по документации: центровка элемента в видимой области
             .scrollPosition(id: $selection, anchor: .center)
         }
         .frame(height: big + 8)

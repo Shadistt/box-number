@@ -56,7 +56,7 @@ struct ConfirmEmailView: View {
 
     private func verify() async {
         do {
-            try await supabase.auth.verifyOTP(email: email, token: code, type: .signup)
+            try await supabase.auth.verifyOTP(email: email, token: code, type: .email)   // «signup» в GoTrue объявлен устаревшим, «email» покрывает подтверждение регистрации
             done = true
         } catch { self.error = "Код не подошёл. Проверьте письмо."; code = "" }
     }
