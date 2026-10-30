@@ -1,0 +1,22 @@
+name: TestFlight feedback
+
+on:
+  workflow_dispatch:
+
+jobs:
+  feedback:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install "pyjwt[crypto]"
+      - run: python scripts/asc_feedback.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feedback
+          path: feedback/
+          if-no-files-found: ignore
