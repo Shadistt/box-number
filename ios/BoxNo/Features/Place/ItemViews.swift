@@ -94,10 +94,11 @@ struct ItemRow: View {
 struct ItemCardView: View {
     let store: PlacesStore
     let item: Item
+    /// Удаление без диалога: карточка закрывается, родитель показывает тост «Отменить».
+    var onDeleted: ((Item) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var showMove = false
-    @State private var confirmDelete = false
     @State private var suggestions: [String] = []
     @State private var editPhoto: EditablePhoto? = nil
     @State private var photoVersion = 0
@@ -145,7 +146,7 @@ struct ItemCardView: View {
                     if editable {
                         Button { showMove = true } label: { Label("Переложить в другое место", systemImage: "arrow.right.square") }
                             .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
-                        Button(role: .destructive) { confirmDelete = true } label: { Label("Удалить вещь", systemImage: "trash") }
+                        Button(role: .destructive) { Task { await deleteNow() } } label: { Label("Удалить вещь", systemImage: "trash") }
                             .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
                     } else {
                         Text("Место запаковано — редактировать нельзя.").font(.footnote).foregroundStyle(Theme.muted)
@@ -162,9 +163,6 @@ struct ItemCardView: View {
             .task {
                 if editable, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
             }
-            .confirmationDialog("Удалить вещь?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Удалить", role: .destructive) { Task { try? await store.deleteItem(item.id); dismiss() } }
-            }
             // Во весь экран, а не sheet поверх sheet'а — без «стопки окон» сзади.
             .fullScreenCover(isPresented: $showMove) {
                 MoveItemView(store: store, item: item) { dismiss() }
@@ -173,6 +171,13 @@ struct ItemCardView: View {
                 PhotoEditView(image: p.image) { edited in Task { await replacePhoto(edited) } }
             }
         }
+    }
+
+    /// Удаляем сразу (мягко) — вернуть можно тостом «Отменить» на экране места.
+    private func deleteNow() async {
+        guard let removed = try? await store.deleteItem(item.id) else { return }
+        dismiss()
+        onDeleted?(removed)
     }
 
     /// Новое фото под тем же ключом: локально сразу, в R2 — следом; подсказки подписи пересчитываем.

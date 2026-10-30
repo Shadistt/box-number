@@ -143,11 +143,20 @@ final class PlacesStore {
         replaceItem(updated)
     }
 
-    func deleteItem(_ id: UUID) async throws {
+    /// Мягкое удаление (deleted_at). Локальное фото не трогаем, пока есть шанс «Отменить».
+    @discardableResult
+    func deleteItem(_ id: UUID) async throws -> Item? {
+        let removed = items.values.joined().first { $0.id == id }
         try await supabase.from("items").update(["deleted_at": AnyJSON.string(ISO8601DateFormatter().string(from: Date()))])
             .eq("id", value: id.uuidString).execute()
         for key in items.keys { items[key]?.removeAll { $0.id == id } }
-        PhotoStore.deleteLocal(id)
+        return removed
+    }
+
+    /// «Отменить» после удаления: снимаем deleted_at и возвращаем вещь в список.
+    func restoreItem(_ item: Item) async throws {
+        try await supabase.from("items").update(["deleted_at": AnyJSON.null]).eq("id", value: item.id.uuidString).execute()
+        replaceItem(item)
     }
 
     private func replaceItem(_ item: Item) {

@@ -19,7 +19,9 @@ struct PlaceView: View {
     @State private var barTop: CGFloat = 0
     @State private var stopTask: Task<Void, Never>? = nil
     @State private var openItem: Item? = nil
-    @State private var toast: String? = nil
+    @State private var toast: Toast? = nil
+    struct Toast: Equatable { var text: String; var undoId: UUID? = nil }
+    @State private var undoAction: (() async -> Void)? = nil
     @State private var shakes: CGFloat = 0
     @FocusState private var titleFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
@@ -67,7 +69,13 @@ struct PlaceView: View {
         .fullScreenCover(isPresented: $showCamera) { CameraView(store: store, placeId: placeId) }
         .sheet(isPresented: $showDest) { DestinationPickerView(store: store, placeId: placeId) }
         .sheet(isPresented: $showEdit) { EditPlaceView(store: store, placeId: placeId) }
-        .sheet(item: $openItem) { ItemCardView(store: store, item: $0) }
+        .sheet(item: $openItem) { it in
+            ItemCardView(store: store, item: it) { removed in
+                // Вариант «удалить сразу + Отменить» (как в Фото/Заметках): 5 секунд на возврат.
+                undoAction = { try? await store.restoreItem(removed) }
+                show("Вещь удалена", undo: removed.id, seconds: 5)
+            }
+        }
         .alert("Поделиться местом", isPresented: $showShare) { Button("Ок") {} } message: { Text("Ссылка и доступ — в следующей сборке.") }
         .confirmationDialog(lockTitle, isPresented: .init(get: { lockDialog != nil }, set: { if !$0 { lockDialog = nil } }), titleVisibility: .visible) {
             switch lockDialog {
@@ -92,10 +100,19 @@ struct PlaceView: View {
         }
         .overlay(alignment: .bottom) {
             if let toast {
-                Text(toast).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                    .padding(.horizontal, 16).frame(height: 48)
-                    .background(Theme.ink, in: Capsule()).padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                HStack(spacing: 14) {
+                    Text(toast.text).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    if toast.undoId != nil {
+                        Button("Отменить") {
+                            let action = undoAction; undoAction = nil; self.toast = nil
+                            Task { await action?() }
+                        }
+                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.accent)
+                    }
+                }
+                .padding(.horizontal, 18).frame(height: 48)
+                .background(Theme.ink, in: Capsule()).padding(.bottom, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.snappy, value: toast)
@@ -270,9 +287,16 @@ struct PlaceView: View {
         }
     }
 
-    private func show(_ text: String) {
-        toast = text
-        Task { try? await Task.sleep(for: .seconds(2)); if toast == text { toast = nil } }
+    private func show(_ text: String, undo: UUID? = nil, seconds: Double = 2) {
+        let t = Toast(text: text, undoId: undo)
+        toast = t
+        Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            if toast == t {
+                toast = nil
+                if let id = undo { undoAction = nil; PhotoStore.deleteLocal(id) }   // окно «Отменить» закрылось — чистим локальное фото
+            }
+        }
     }
 }
 
