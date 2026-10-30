@@ -43,6 +43,7 @@ def main():
             texts = [t.format(p) for p in prompts for t in templates]
             enc = tok(texts, padding="max_length", max_length=64, truncation=True, return_tensors="pt")
             e = model.get_text_features(**enc)
+            if hasattr(e, 'pooler_output'): e = e.pooler_output
             e = e / e.norm(dim=-1, keepdim=True)
             m = e.mean(dim=0); m = m / m.norm()
             embs.append(m.numpy().astype(np.float32))
@@ -66,11 +67,17 @@ def main():
         def __init__(self, m): super().__init__(); self.m = m
         def forward(self, pixel_values):
             e = self.m.get_image_features(pixel_values=pixel_values)
+            if hasattr(e, 'pooler_output'): e = e.pooler_output
             return e / e.norm(dim=-1, keepdim=True)
 
     enc = ImageEncoder(model).eval()
     example = torch.rand(1, 3, 224, 224) * 2 - 1
-    traced = torch.jit.trace(enc, example)
+    try:
+        traced = torch.export.export(enc, (example,)).run_decompositions({})
+        print("using torch.export")
+    except Exception as ex:
+        print("torch.export failed, fallback to jit.trace:", ex)
+        traced = torch.jit.trace(enc, example)
     # SigLIP нормализует пиксели как (x/255 - 0.5)/0.5 = x/127.5 - 1
     mlmodel = ct.convert(
         traced,
@@ -83,7 +90,7 @@ def main():
     mlmodel.short_description = "SigLIP 2 base/16 image encoder (Apache-2.0) — вектор вещи для подписи"
     try:
         from coremltools.optimize.coreml import OpPalettizerConfig, OptimizationConfig, palettize_weights
-        cfg = OptimizationConfig(global_config=OpPalettizerConfig(mode="kmeans", nbits=6, granularity="per_grouped_channel", group_size=16))
+        cfg = OptimizationConfig(global_config=OpPalettizerConfig(mode="kmeans", nbits=6, granularity="per_tensor"))
         mlmodel = palettize_weights(mlmodel, cfg)
         print("palettized 6-bit")
     except Exception as e:
