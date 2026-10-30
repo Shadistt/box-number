@@ -11,10 +11,42 @@ enum Captioner {
     static let confident: Float = 0.35
 
     /// Сначала SigLIP 2 (если модель в сборке), иначе встроенная Vision.
+    /// Перед распознаванием вырезаем главный предмет кадра: иначе модель описывает комнату, а не вещь.
     static func candidates(_ image: UIImage) async -> [String] {
-        let clip = await ClipCaptioner.shared.candidates(image)
+        let subject = await focusOnSubject(image)
+        let clip = await ClipCaptioner.shared.candidates(subject)
         if !clip.isEmpty { return clip.map(\.title) }
-        return await visionCandidates(image)
+        return await visionCandidates(subject)
+    }
+
+    /// Объектная заметность (Vision, на устройстве): рамка самого заметного предмета → вырезка с полями.
+    /// Если предмет и так занимает почти весь кадр или рамка не найдена — возвращаем исходное фото.
+    static func focusOnSubject(_ image: UIImage) async -> UIImage {
+        guard let cg = image.cgImage else { return image }
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let req = VNGenerateObjectnessBasedSaliencyImageRequest()
+                let handler = VNImageRequestHandler(cgImage: cg, orientation: cgOrientation(image.imageOrientation))
+                try? handler.perform([req])
+                guard let obs = req.results?.first as? VNSaliencyImageObservation,
+                      let box = obs.salientObjects?.max(by: { $0.confidence < $1.confidence })?.boundingBox,
+                      box.width * box.height < 0.8 else { cont.resume(returning: image); return }
+                // bounding box в нормированных координатах с началом внизу слева; добавляем 15 % полей
+                let pad: CGFloat = 0.15
+                let w = image.size.width, h = image.size.height
+                let rect = CGRect(x: (box.minX - box.width * pad) * w,
+                                  y: (1 - box.maxY - box.height * pad) * h,
+                                  width: box.width * (1 + 2 * pad) * w,
+                                  height: box.height * (1 + 2 * pad) * h)
+                    .intersection(CGRect(origin: .zero, size: image.size))
+                guard rect.width > 64, rect.height > 64 else { cont.resume(returning: image); return }
+                let format = UIGraphicsImageRendererFormat.default(); format.scale = 1
+                let out = UIGraphicsImageRenderer(size: rect.size, format: format).image { _ in
+                    image.draw(at: CGPoint(x: -rect.minX, y: -rect.minY))
+                }
+                cont.resume(returning: out)
+            }
+        }
     }
 
     /// До 5 вариантов подписи по убыванию уверенности. Порог — по точности/полноте модели, а не по «сырой» уверенности:

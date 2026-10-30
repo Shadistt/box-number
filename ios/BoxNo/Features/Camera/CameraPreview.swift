@@ -9,6 +9,23 @@ struct CameraPreview: UIViewRepresentable {
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        private var watchdog: Timer?
+        private var badTicks = 0
+
+        /// Раз в секунду проверяем, что превью живое; два плохих тика подряд — перезапуск сессии.
+        func startWatchdog() {
+            watchdog?.invalidate()
+            watchdog = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                guard let self, self.window != nil else { return }
+                let ok = self.previewLayer.session?.isRunning == true && self.previewLayer.connection?.isActive == true
+                self.badTicks = ok ? 0 : self.badTicks + 1
+                if self.badTicks >= 2 { self.badTicks = 0; CameraModel.shared.restart() }
+            }
+        }
+        override func willMove(toWindow newWindow: UIWindow?) {
+            super.willMove(toWindow: newWindow)
+            if newWindow == nil { watchdog?.invalidate(); watchdog = nil } else { startWatchdog() }
+        }
     }
 
     func makeUIView(context: Context) -> PreviewView {
