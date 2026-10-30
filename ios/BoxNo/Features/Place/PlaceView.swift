@@ -14,6 +14,8 @@ struct PlaceView: View {
     @State private var showShare = false
     @State private var confirmDelete = false
     @State private var lockDialog: LockDialog? = nil
+    @State private var visible = false
+    @State private var stopTask: Task<Void, Never>? = nil
     @State private var openItem: Item? = nil
     @State private var toast: String? = nil
     @State private var shakes: CGFloat = 0
