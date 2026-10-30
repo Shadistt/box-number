@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Экран места (ТЗ §7): плитка-иконка, название, плашка статуса (B), Фото / Список, живая камера, вещи, меню «…».
 struct PlaceView: View {
@@ -23,6 +24,16 @@ struct PlaceView: View {
     struct Toast: Equatable { var text: String; var undoId: UUID? = nil }
     @State private var undoAction: (() async -> Void)? = nil
     @State private var shakes: CGFloat = 0
+    // Поиск внутри места (лупа в шапке — как на главном).
+    @State private var query = ""
+    @State private var showSearch = false
+    @FocusState private var searchFocused: Bool
+    // Фото самого места
+    @State private var placePhotoMenu = false
+    @State private var placeCamera = false
+    @State private var placePickerItem: PhotosPickerItem? = nil
+    @State private var showPlacePicker = false
+    @State private var placePhotoViewer = false
     @FocusState private var titleFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
 
@@ -30,7 +41,12 @@ struct PlaceView: View {
     enum LockDialog: Identifiable { case pack, packed, unpacking, done; var id: Int { hashValue } }
 
     private var place: Place? { store.place(placeId) }
-    private var items: [Item] { store.items(of: placeId) }
+    private var allItems: [Item] { store.items(of: placeId) }
+    /// В сетке и списке — только совпавшие с поиском (пустой запрос — все).
+    private var items: [Item] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? allItems : allItems.filter { $0.title.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+    }
 
     var body: some View {
         Group {
@@ -40,6 +56,10 @@ struct PlaceView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    withAnimation(.snappy) { showSearch.toggle() }
+                    if showSearch { searchFocused = true } else { query = "" }
+                } label: { Image(systemName: showSearch ? "magnifyingglass.circle.fill" : "magnifyingglass") }
                 Button { showShare = true } label: { Image(systemName: "square.and.arrow.up") }
                 Menu {
                     Button { showEdit = true } label: { Label("Изменить место", systemImage: "pencil") }
@@ -69,6 +89,30 @@ struct PlaceView: View {
         .fullScreenCover(isPresented: $showCamera) { CameraView(store: store, placeId: placeId) }
         .sheet(isPresented: $showDest) { DestinationPickerView(store: store, placeId: placeId) }
         .sheet(isPresented: $showEdit) { EditPlaceView(store: store, placeId: placeId) }
+        .confirmationDialog("Фото места", isPresented: $placePhotoMenu, titleVisibility: .hidden) {
+            Button("Снять фото места") { placeCamera = true }
+            Button("Выбрать из галереи") { showPlacePicker = true }
+            if place?.numberPhoto != nil { Button("Удалить фото", role: .destructive) { Task { await setPlacePhoto(nil) } } }
+            Button("Отмена", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPlacePicker, selection: $placePickerItem, matching: .images)
+        .onChange(of: placePickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { await setPlacePhoto(img) }
+                placePickerItem = nil
+            }
+        }
+        .fullScreenCover(isPresented: $placeCamera) {
+            CameraPicker { img in if let img { Task { await setPlacePhoto(img) } } }.ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $placePhotoViewer) {
+            if let place {
+                PlacePhotoViewer(place: place, editable: place.status == .open,
+                                 onReplace: { placePhotoViewer = false; placePhotoMenu = true },
+                                 onDelete: { placePhotoViewer = false; Task { await setPlacePhoto(nil) } })
+            }
+        }
         .sheet(item: $openItem) { it in
             ItemCardView(store: store, item: it) { removed in
                 // Вариант «удалить сразу + Отменить» (как в Фото/Заметках): 5 секунд на возврат.
@@ -125,9 +169,9 @@ struct PlaceView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 14) {
                     Button {
-                        guard place.destinationId != nil else { return }
-                        withAnimation(.snappy) { barExpanded.toggle() }
-                    } label: { BoxTileView(place: place, size: 112) }.buttonStyle(.plain)
+                        // Есть фото места — открываем крупно; нет — предлагаем снять.
+                        if place.numberPhoto != nil { placePhotoViewer = true } else if editable { placePhotoMenu = true }
+                    } label: { BoxTileView(place: place, size: 112, cameraHint: editable) }.buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 6) {
                         TextField("\(place.kind.title) без названия", text: $title)
                             .font(.system(size: 22, weight: .heavy)).lineLimit(1)
@@ -155,13 +199,17 @@ struct PlaceView: View {
                     Color.clear.preference(key: BarTopKey.self, value: g.frame(in: .named("placeScreen")).minY)
                 })
 
+                if showSearch {
+                    SearchField(text: $query, placeholder: "Найти вещь в этом месте", focused: $searchFocused)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 Picker("", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) } }.pickerStyle(.segmented)
 
                 if mode == .photos {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 10, alignment: .top), GridItem(.flexible(), spacing: 10, alignment: .top), GridItem(.flexible(), spacing: 10, alignment: .top)], spacing: 14) {
                         CameraTile(enabled: editable) { showCamera = true }
                         ForEach(items) { it in
-                            ItemCell(item: it, status: place.status,
+                            ItemCell(item: it, status: place.status, query: query,
                                      onMinus: { Task { await deleteWithUndo(it) } },
                                      onTake: { Task { try? await store.updateItem(it.id, taken: !it.isTaken) } },
                                      onTap: { openItem = it })
@@ -175,14 +223,17 @@ struct PlaceView: View {
                             }.buttonStyle(PrimaryButtonStyle())
                         }
                         ForEach(items) { it in
-                            ItemRow(item: it, status: place.status,
+                            ItemRow(item: it, status: place.status, query: query,
                                     onMinus: { Task { await deleteWithUndo(it) } },
                                     onTake: { Task { try? await store.updateItem(it.id, taken: !it.isTaken) } },
                                     onTap: { openItem = it })
                         }
                     }
                 }
-                if items.isEmpty {
+                if items.isEmpty, !allItems.isEmpty {
+                    Text("Ничего не нашлось").font(.subheadline).foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity).padding(.top, 24)
+                } else if allItems.isEmpty {
                     Text(editable ? "Снимите первую вещь — подпись появится сама." : "Вещей нет.")
                         .font(.subheadline).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.top, 8)
                 }
@@ -287,6 +338,17 @@ struct PlaceView: View {
         }
     }
 
+    /// Фото места: сжимаем как фото вещи, кладём локально под id места, заливаем под places/<id>/…; nil — удалить.
+    private func setPlacePhoto(_ img: UIImage?) async {
+        guard let img else {
+            PhotoStore.deleteLocal(placeId)
+            try? await store.updatePlace(placeId, numberPhoto: .some(nil))
+            return
+        }
+        guard let data = PhotoStore.save(img, for: placeId) else { return }
+        await PhotoStore.uploadPlacePhoto(placeId, photo: data.photo, thumb: data.thumb, store: store)
+    }
+
     /// Удаление из списка (второе нажатие на урну): сразу, с «Отменить» в тосте.
     private func deleteWithUndo(_ it: Item) async {
         guard let removed = try? await store.deleteItem(it.id) else { return }
@@ -318,4 +380,53 @@ struct Shake: GeometryEffect {
 struct BarTopKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Фото места крупно: зум щипком, «Заменить» / «Удалить» (как просмотр аватарки).
+struct PlacePhotoViewer: View {
+    let place: Place
+    let editable: Bool
+    let onReplace: () -> Void
+    let onDelete: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage? = nil
+    @State private var zoom: CGFloat = 1
+    @State private var zoomStart: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            if let image {
+                Image(uiImage: image).resizable().scaledToFit()
+                    .scaleEffect(zoom)
+                    .gesture(MagnifyGesture().onChanged { v in zoom = min(max(zoomStart * v.magnification, 1), 5) }
+                        .onEnded { _ in zoomStart = zoom; if zoom < 1.05 { withAnimation(.snappy) { zoom = 1; zoomStart = 1 } } })
+                    .onTapGesture(count: 2) { withAnimation(.snappy) { zoom = zoom > 1 ? 1 : 2.5; zoomStart = zoom } }
+            } else { ProgressView().tint(.white) }
+            VStack {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
+                    }
+                    Spacer()
+                    Text("\(place.kind.numberLabel) № \(place.number)").font(.headline).foregroundStyle(.white)
+                    Spacer()
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                .padding(.horizontal, 16).padding(.top, 8)
+                Spacer()
+                if editable {
+                    HStack(spacing: 12) {
+                        Button(action: onReplace) { Label("Заменить", systemImage: "camera") }
+                            .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .white))
+                        Button(action: onDelete) { Label("Удалить", systemImage: "trash") }
+                            .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .red))
+                    }
+                    .padding(16)
+                }
+            }
+        }
+        .task { image = await PhotoStore.image(forPlace: place, thumb: false) }
+    }
 }

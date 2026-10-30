@@ -34,11 +34,21 @@ enum PhotoStore {
 
     /// Локальный файл → иначе качаем по подписанной ссылке и кладём рядом.
     static func image(for item: Item, thumb: Bool) async -> UIImage? {
-        let key = (item.id.uuidString + (thumb ? "_t" : "")) as NSString
+        await image(localId: item.id, remoteKey: thumb ? item.thumb : item.photo, thumb: thumb)
+    }
+
+    /// Фото самого места (коробки): ключ places/<id>/photo.jpg в places.number_photo, превью — рядом.
+    static func image(forPlace place: Place, thumb: Bool) async -> UIImage? {
+        let key = place.numberPhoto.map { thumb ? $0.replacingOccurrences(of: "/photo.jpg", with: "/thumb.jpg") : $0 }
+        return await image(localId: place.id, remoteKey: key, thumb: thumb)
+    }
+
+    static func image(localId id: UUID, remoteKey: String?, thumb: Bool) async -> UIImage? {
+        let key = (id.uuidString + (thumb ? "_t" : "")) as NSString
         if let img = cache.object(forKey: key) { return img }
-        let url = localURL(item.id, thumb: thumb)
+        let url = localURL(id, thumb: thumb)
         if let img = UIImage(contentsOfFile: url.path) { cache.setObject(img, forKey: key); return img }
-        guard let remoteKey = thumb ? item.thumb : item.photo else { return nil }
+        guard let remoteKey else { return nil }
         do {
             let ticket: ViewTicket = try await supabase.functions.invoke("photo-view-url", options: .init(body: ["key": remoteKey]))
             let (data, _) = try await URLSession.shared.data(from: URL(string: ticket.url)!)
@@ -56,6 +66,16 @@ enum PhotoStore {
             try await put(t.thumbUrl, thumb)
             try await store.updateItem(id, photo: t.photoKey, thumb: t.thumbKey)
         } catch { print("upload:", error) }
+    }
+
+    /// Фото места: тот же тикет, но по place_id; ключ сохраняем в places.number_photo.
+    static func uploadPlacePhoto(_ placeId: UUID, photo: Data, thumb: Data, store: PlacesStore) async {
+        do {
+            let t: UploadTicket = try await supabase.functions.invoke("photo-upload-url", options: .init(body: ["place_id": placeId.uuidString]))
+            try await put(t.photoUrl, photo)
+            try await put(t.thumbUrl, thumb)
+            try await store.updatePlace(placeId, numberPhoto: .some(t.photoKey))
+        } catch { print("place photo upload:", error) }
     }
 
     private static func put(_ url: String, _ data: Data) async throws {

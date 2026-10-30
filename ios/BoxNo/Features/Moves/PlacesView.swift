@@ -26,6 +26,12 @@ struct PlacesView: View {
              || store.items(of: p.id).contains { $0.title.lowercased().contains(q) })
         }
     }
+    /// Вещи места, совпавшие с запросом, — если само место по названию/номеру не совпало (строка «Нашлось: …» под плиткой).
+    private func matchedItems(in p: Place) -> [String] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty, !(p.title.lowercased().contains(q) || p.number.lowercased().contains(q)) else { return [] }
+        return store.items(of: p.id).filter { $0.title.lowercased().contains(q) }.map(\.title)
+    }
     private var kindsPresent: [PlaceKind] { PlaceKind.allCases.filter { k in store.places.contains { $0.kind == k } } }
 
     var body: some View {
@@ -116,7 +122,8 @@ struct PlacesView: View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12, alignment: .top), GridItem(.flexible(), spacing: 12, alignment: .top)], spacing: 12) {
             ForEach(filtered) { p in
                 Button { open = PlaceRef(id: p.id) } label: {
-                    PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name, query: query)
+                    PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name,
+                              query: query, matchedItems: matchedItems(in: p))
                 }.buttonStyle(.plain)
             }
         }
@@ -172,6 +179,7 @@ struct PlaceTile: View {
     let count: Int
     let destination: String?
     var query = ""
+    var matchedItems: [String] = []
 
     private var tileStatus: String {
         switch place.status {
@@ -187,7 +195,15 @@ struct PlaceTile: View {
             ZStack(alignment: .top) {
                 RoundedRectangle(cornerRadius: 16).fill(place.status == .packed ? Theme.ink : Color(hex: 0xE8E6E0))
                     .aspectRatio(1, contentMode: .fit)
-                if place.kind == .box {
+                if let photo {
+                    Image(uiImage: photo).resizable().scaledToFill()
+                        .aspectRatio(1, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(alignment: .bottomLeading) {
+                            Text(place.number).font(.system(size: 15, weight: .heavy, design: .rounded))
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(.white, in: Capsule()).foregroundStyle(Theme.ink).padding(8)
+                        }
+                } else if place.kind == .box {
                     Box3DView(number: place.number, openness: place.status == .packed ? 0 : 1, size: 120)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -221,12 +237,19 @@ struct PlaceTile: View {
                 }.padding(8)
             }
             Text(highlight(place.displayTitle, query)).font(.system(size: 15, weight: .bold)).lineLimit(1)
+            if !matchedItems.isEmpty {
+                // Почему место в выдаче: совпавшие вещи, до двух названий + «+N».
+                let shown = matchedItems.prefix(2).joined(separator: ", ") + (matchedItems.count > 2 ? " +\(matchedItems.count - 2)" : "")
+                Text(highlight("Нашлось: " + shown, query)).font(.caption).foregroundStyle(Theme.muted).lineLimit(2)
+            }
             Text(tileStatus).font(.caption.weight(place.status == .open ? .regular : .semibold))
                 .foregroundStyle(place.status == .packed ? Theme.accent : Theme.muted).lineLimit(1)
         }
         .padding(8).background(Theme.card, in: RoundedRectangle(cornerRadius: 22))
         .opacity(place.status == .done ? 0.55 : 1)
+        .task(id: place.numberPhoto) { photo = place.numberPhoto == nil ? nil : await PhotoStore.image(forPlace: place, thumb: true) }
     }
+    @State private var photo: UIImage? = nil
 }
 
 struct Chip: View {

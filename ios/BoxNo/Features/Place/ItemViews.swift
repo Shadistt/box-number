@@ -30,6 +30,7 @@ struct ItemThumb: View {
 struct ItemCell: View {
     let item: Item
     let status: PlaceStatus
+    var query = ""
     let onMinus: () -> Void
     let onTake: () -> Void
     let onTap: () -> Void
@@ -52,7 +53,7 @@ struct ItemCell: View {
                     }.padding(6)
                 }
             }
-            Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+            Text(highlight(item.title, query)).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                 .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
         }
     }
@@ -62,6 +63,7 @@ struct ItemCell: View {
 struct ItemRow: View {
     let item: Item
     let status: PlaceStatus
+    var query = ""
     let onMinus: () -> Void
     let onTake: () -> Void
     let onTap: () -> Void
@@ -70,7 +72,7 @@ struct ItemRow: View {
         HStack(spacing: 12) {
             Button(action: onTap) { ItemThumb(item: item, size: 48) }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                Text(highlight(item.title, query)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
                     .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
                 if let t = item.takenAt { Text("Достали " + t.formatted(.dateTime.day().month())).font(.caption).foregroundStyle(Theme.muted) }
                 else if item.captionSource == .ai { Text("AI-подпись").font(.caption).foregroundStyle(Theme.muted) }

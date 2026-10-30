@@ -64,8 +64,10 @@ final class PlacesStore {
 
     /// Частичное обновление; поля nil не трогаем.
     func updatePlace(_ id: UUID, title: String? = nil, number: String? = nil, kind: PlaceKind? = nil,
-                     customKind: String?? = nil, destinationId: UUID?? = nil, status: PlaceStatus? = nil) async throws {
+                     customKind: String?? = nil, destinationId: UUID?? = nil, status: PlaceStatus? = nil,
+                     numberPhoto: String?? = nil) async throws {
         var patch: [String: AnyJSON] = [:]
+        if let numberPhoto { patch["number_photo"] = numberPhoto.map { .string($0) } ?? .null }
         if let title { patch["title"] = .string(title) }
         if let number { patch["number"] = .string(number) }
         if let kind { patch["kind"] = .string(kind.rawValue) }

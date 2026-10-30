@@ -5,6 +5,9 @@ import SwiftUI
 struct BoxTileView: View {
     let place: Place
     var size: CGFloat = 120
+    /// Показывать мини-камеру (намёк «можно добавить фото») — на экране места, не в сетке.
+    var cameraHint = false
+    @State private var photo: UIImage? = nil
 
     private var packed: Bool { place.status == .packed }
 
@@ -12,10 +15,33 @@ struct BoxTileView: View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.18)
                 .fill(packed ? Theme.ink : Color(hex: 0xE8E6E0))
-            if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
+            if let photo {
+                // Фото самого места; номер — бейджем в углу, чтобы оставался виден.
+                Image(uiImage: photo).resizable().scaledToFill()
+                    .frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: size * 0.18))
+                    .overlay(alignment: .topLeading) {
+                        Text(place.number).font(.system(size: size * 0.16, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(packed ? Theme.ink : .white, in: Capsule())
+                            .foregroundStyle(packed ? .white : Theme.ink).padding(6)
+                    }
+            } else if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
         }
         .frame(width: size, height: size)
+        .overlay(alignment: .bottomTrailing) {
+            if cameraHint && photo == nil {
+                // Как иконка селфи в настройках: подсказка, что сюда можно положить фото коробки.
+                Image(systemName: "camera.fill").font(.system(size: size * 0.12, weight: .semibold))
+                    .frame(width: size * 0.26, height: size * 0.26)
+                    .background(packed ? Color.white : Theme.ink, in: Circle())
+                    .foregroundStyle(packed ? Theme.ink : .white)
+                    .offset(x: 4, y: 4)
+            }
+        }
         .animation(.spring(duration: 0.55, bounce: 0.25), value: packed)
+        .task(id: place.numberPhoto) {
+            photo = place.numberPhoto == nil ? nil : await PhotoStore.image(forPlace: place, thumb: size <= 160)
+        }
     }
 
     private var box: some View {
