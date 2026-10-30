@@ -25,3 +25,17 @@ drop policy "moves: read" on moves;
 create policy "moves: read" on moves for select using (owner_id = auth.uid() or move_role(id) is not null);
 
 drop function if exists whoami();
+
+-- Для самой таблицы places нельзя искать свою же строку по id в момент insert … returning:
+-- берём move_id из строки и проверяем доступ по нему.
+create or replace function place_role(p_move uuid, p_place uuid) returns access_role
+language sql volatile security definer set search_path = public as $$
+  select coalesce(
+    move_role(p_move),
+    (select role from place_access where place_id = p_place and user_id = auth.uid() and status = 'active')
+  )
+$$;
+drop policy "places: read" on places;
+drop policy "places: update" on places;
+create policy "places: read"   on places for select using (place_role(move_id, id) is not null);
+create policy "places: update" on places for update using (place_role(move_id, id) = 'edit');
