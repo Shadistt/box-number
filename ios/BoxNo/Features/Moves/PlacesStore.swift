@@ -75,6 +75,7 @@ final class PlacesStore {
             switch status {
             case .packed: patch["packed_at"] = now; patch["unpacked_at"] = .null
             case .unpacking: patch["unpacked_at"] = now
+            case .done: patch["unpacked_at"] = now
             case .open: patch["packed_at"] = .null; patch["unpacked_at"] = .null
             }
         }

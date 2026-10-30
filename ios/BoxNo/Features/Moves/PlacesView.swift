@@ -163,6 +163,9 @@ struct PlaceTile: View {
                     if place.status == .packed {
                         Image(systemName: "lock.fill").font(.caption.weight(.bold)).padding(6)
                             .background(Theme.accent, in: Circle()).foregroundStyle(Theme.ink)
+                    } else if place.status == .done {
+                        Image(systemName: "checkmark").font(.caption.weight(.bold)).padding(6)
+                            .background(Theme.ink, in: Circle()).foregroundStyle(.white)
                     }
                     Spacer()
                     if let destination {
@@ -177,6 +180,7 @@ struct PlaceTile: View {
             Text("\(place.kindTitle) · \(Plural.things(count))").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
         }
         .padding(8).background(Theme.card, in: RoundedRectangle(cornerRadius: 22))
+        .opacity(place.status == .done ? 0.55 : 1)
     }
 }
 

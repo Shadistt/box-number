@@ -16,6 +16,8 @@ struct StatusBarView: View {
     private var needDest: Bool { place.destinationId == nil }
     private var isOpen: Bool { expanded || needDest }
     private var packed: Bool { place.status == .packed }
+    private var allTaken: Bool { place.status == .unpacking && itemsCount > 0 && takenCount == itemsCount }
+    private var done: Bool { place.status == .done }
     private var destName: String { destinations.first { $0.id == place.destinationId }?.name ?? "" }
 
     private var bg: Color { packed ? Theme.ink : .white }
@@ -45,13 +47,13 @@ struct StatusBarView: View {
 
                 if !isOpen {
                     Button(action: onLock) {
-                        Image(systemName: packed ? "lock.fill" : "lock.open")
+                        Image(systemName: done ? "arrow.uturn.backward" : (allTaken ? "checkmark" : (packed ? "lock.fill" : "lock.open")))
                             .font(.system(size: 18, weight: .bold))
                             .frame(width: 44, height: 44)
-                            .background(packed ? Theme.accent : Theme.ink, in: Circle())
-                            .foregroundStyle(packed ? Theme.ink : .white)
+                            .background(packed || allTaken ? Theme.accent : Theme.ink, in: Circle())
+                            .foregroundStyle(packed || allTaken ? Theme.ink : .white)
                     }
-                    .accessibilityLabel(packed ? "Распаковать" : "Запаковать")
+                    .accessibilityLabel(done ? "Вернуть в распаковку" : (allTaken ? "Коробка разобрана" : (packed ? "Распаковать" : "Запаковать")))
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -94,7 +96,11 @@ struct StatusBarView: View {
         case .packed:
             let d = place.packedAt?.formatted(.dateTime.day().month(.wide)) ?? ""
             return "Запакована \(d) · " + Plural.things(itemsCount)
-        case .unpacking: return "Распаковка · достали \(takenCount) из \(itemsCount)"
+        case .unpacking:
+            return allTaken ? "Всё достали · отметить разобранной?" : "Распаковка · достали \(takenCount) из \(itemsCount)"
+        case .done:
+            let d = place.unpackedAt?.formatted(.dateTime.day().month(.wide)) ?? ""
+            return "Разобрана \(d) · " + Plural.things(itemsCount)
         }
     }
 }

@@ -13,6 +13,7 @@ struct PlaceView: View {
     @State private var showEdit = false
     @State private var showShare = false
     @State private var confirmDelete = false
+    @State private var lockDialog: LockDialog? = nil
     @State private var openItem: Item? = nil
     @State private var toast: String? = nil
     @State private var shakes: CGFloat = 0
@@ -20,6 +21,7 @@ struct PlaceView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     enum Mode: String, CaseIterable { case photos = "Фото", list = "Список" }
+    enum LockDialog: Identifiable { case pack, packed, unpacking, done; var id: Int { hashValue } }
 
     private var place: Place? { store.place(placeId) }
     private var items: [Item] { store.items(of: placeId) }
@@ -62,6 +64,25 @@ struct PlaceView: View {
         .sheet(isPresented: $showEdit) { EditPlaceView(store: store, placeId: placeId) }
         .sheet(item: $openItem) { ItemCardView(store: store, item: $0) }
         .alert("Поделиться местом", isPresented: $showShare) { Button("Ок") {} } message: { Text("Ссылка и доступ — в следующей сборке.") }
+        .confirmationDialog(lockTitle, isPresented: .init(get: { lockDialog != nil }, set: { if !$0 { lockDialog = nil } }), titleVisibility: .visible) {
+            switch lockDialog {
+            case .pack:
+                Button("Запаковать") { setStatus(.packed, toast: "Запаковано") }
+            case .packed:
+                Button("Открыть и доложить вещи") { setStatus(.open, toast: "Открыто — можно добавлять") }
+                Button("Начать распаковку") { setStatus(.unpacking, toast: "Распаковка началась") }
+            case .unpacking:
+                if allTaken { Button("Коробка разобрана") { setStatus(.done, toast: "Разобрана") } }
+                Button("Запаковать снова") { setStatus(.packed, toast: "Запаковано") }
+                Button("Открыть и доложить вещи") { setStatus(.open, toast: "Открыто — можно добавлять") }
+            case .done:
+                Button("Вернуть в распаковку") { setStatus(.unpacking, toast: "Снова в распаковке") }
+            case nil: EmptyView()
+            }
+            Button("Отмена", role: .cancel) {}
+        } message: {
+            Text(lockMessage)
+        }
         .confirmationDialog("Удалить место и все вещи в нём?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Удалить", role: .destructive) { Task { try? await store.deletePlace(placeId); dismiss() } }
         }
@@ -160,21 +181,46 @@ struct PlaceView: View {
     }
 
     private func toggleLock(_ p: Place) async {
-        let next: PlaceStatus
         switch p.status {
         case .open:
             guard p.destinationId != nil else {
                 withAnimation(.snappy) { barExpanded = true }
                 withAnimation(.linear(duration: 0.4)) { shakes += 1 }; return
             }
-            next = .packed
-        case .packed: next = .unpacking
-        case .unpacking: next = .packed
+            lockDialog = .pack
+        case .packed: lockDialog = .packed
+        case .unpacking: lockDialog = .unpacking
+        case .done: lockDialog = .done
         }
-        do {
-            try await store.updatePlace(placeId, status: next)
-            show(next == .packed ? "Запаковано" : "Распаковка началась")
-        } catch { show(error.localizedDescription) }
+    }
+
+    private func setStatus(_ next: PlaceStatus, toast text: String) {
+        Task {
+            do { try await store.updatePlace(placeId, status: next); show(text) }
+            catch { show(error.localizedDescription) }
+        }
+    }
+
+    private var allTaken: Bool { !items.isEmpty && items.allSatisfy(\.isTaken) }
+
+    private var lockTitle: String {
+        guard let p = place else { return "" }
+        switch lockDialog {
+        case .pack: return "Запаковать \(p.kind.numberLabel.lowercased()) № \(p.number)?"
+        case .packed: return "\(p.kind.numberLabel) № \(p.number) запакована"
+        case .unpacking: return allTaken ? "Всё достали" : "Распаковка"
+        case .done: return "\(p.kind.numberLabel) № \(p.number) разобрана"
+        case nil: return ""
+        }
+    }
+    private var lockMessage: String {
+        switch lockDialog {
+        case .pack: return "После запаковки вещи не добавить, пока не откроете снова. Открыть можно в любой момент."
+        case .packed: return "Что делаем?"
+        case .unpacking: return allTaken ? "Отметьте коробку разобранной — она уйдёт из активных, вещи останутся в истории." : "Что делаем?"
+        case .done: return "Вещи можно снова отмечать и возвращать."
+        case nil: return ""
+        }
     }
 
     private func show(_ text: String) {

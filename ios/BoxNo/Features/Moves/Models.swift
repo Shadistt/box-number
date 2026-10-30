@@ -21,7 +21,7 @@ struct MoveDestination: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey { case id, name, position, moveId = "move_id" }
 }
 
-enum PlaceStatus: String, Codable { case open, packed, unpacking }
+enum PlaceStatus: String, Codable { case open, packed, unpacking, done }
 
 struct Place: Codable, Identifiable, Hashable {
     var id: UUID
