@@ -9,7 +9,7 @@ struct MovesListView: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    if store.moves.isEmpty && !store.loading {
+                    if store.moves.isEmpty && store.loaded && !store.loading {
                         EmptyMovesView()
                     } else {
                         Text("СЕЙЧАС").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 8)

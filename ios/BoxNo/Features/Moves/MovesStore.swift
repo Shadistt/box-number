@@ -10,7 +10,10 @@ final class MovesStore {
     var destinations: [UUID: [MoveDestination]] = [:]
     var placesCount: [UUID: Int] = [:]
     var loading = false
+    var loaded = false            // был ли хоть один ответ сервера или кеш
     var error: String?
+
+    init() { restoreCache() }
 
     func load() async {
         loading = true; defer { loading = false }
@@ -24,8 +27,28 @@ final class MovesStore {
             let places: [Place] = try await supabase.from("places").select("id,move_id,number,title,kind,destination_id,status")
                 .is("deleted_at", value: nil).execute().value
             placesCount = Dictionary(grouping: places, by: \.moveId).mapValues(\.count)
+            loaded = true
+            saveCache()
         } catch { self.error = error.localizedDescription }
     }
+
+    // MARK: кеш главного экрана — чтобы карточки были на месте сразу при запуске
+
+    private struct Snapshot: Codable { var moves: [Move]; var destinations: [UUID: [MoveDestination]]; var placesCount: [UUID: Int] }
+    private static let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("moves.json")
+
+    private func restoreCache() {
+        guard let data = try? Data(contentsOf: Self.cacheURL),
+              let snap = try? JSONDecoder.supabase.decode(Snapshot.self, from: data) else { return }
+        moves = snap.moves; destinations = snap.destinations; placesCount = snap.placesCount; loaded = true
+    }
+
+    private func saveCache() {
+        let snap = Snapshot(moves: moves, destinations: destinations, placesCount: placesCount)
+        if let data = try? JSONEncoder.supabase.encode(snap) { try? data.write(to: Self.cacheURL, options: .atomic) }
+    }
+
+    static func clearCache() { try? FileManager.default.removeItem(at: cacheURL) }
 
     func createMove(from: String, to: [String]) async throws -> Move {
         let user = try await supabase.auth.session.user

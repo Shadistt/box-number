@@ -33,6 +33,7 @@ final class SessionStore {
     }
 
     func signOut() async {
+        MovesStore.clearCache()
         try? await supabase.auth.signOut()
     }
 }
