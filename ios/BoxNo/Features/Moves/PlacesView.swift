@@ -11,7 +11,7 @@ struct PlacesView: View {
     @State private var creating = false
     @FocusState private var searching: Bool
 
-    enum Tab: String, CaseIterable { case places = "Места", items = "Все вещи" }
+    enum Tab: String, CaseIterable { case places = "Места", items = "Вещи" }
     struct PlaceRef: Identifiable, Hashable { let id: UUID }
 
     init(move: Move, destinations: [MoveDestination]) {

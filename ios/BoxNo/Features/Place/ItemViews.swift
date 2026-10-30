@@ -40,9 +40,9 @@ struct ItemCell: View {
                 Button(action: onTap) { ItemThumb(item: item) }.buttonStyle(.plain)
                     .opacity(item.isTaken ? 0.45 : 1)
                 if status == .open {
-                    Button(action: onMinus) {
-                        Image(systemName: "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
-                            .frame(width: 26, height: 26).background(.black.opacity(0.55), in: Circle())
+                    TwoStepDelete(onDelete: onMinus) { armed in
+                        Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                            .frame(width: 26, height: 26).background(armed ? Color.red : .black.opacity(0.55), in: Circle())
                     }.padding(6)
                 } else if status == .unpacking {
                     Button(action: onTake) {
@@ -77,7 +77,9 @@ struct ItemRow: View {
             }
             Spacer()
             if status == .open {
-                Button(action: onMinus) { Image(systemName: "minus.circle").font(.title3).foregroundStyle(Theme.muted) }
+                TwoStepDelete(onDelete: onMinus) { armed in
+                    Image(systemName: armed ? "trash.circle.fill" : "minus.circle").font(.title3).foregroundStyle(armed ? .red : Theme.muted)
+                }
             } else if status == .unpacking {
                 Button(action: onTake) {
                     Text(item.isTaken ? "Вернуть" : "Достал(а)").font(.system(size: 13, weight: .bold))
@@ -101,6 +103,7 @@ struct ItemCardView: View {
     @State private var showMove = false
     @State private var suggestions: [String] = []
     @State private var editPhoto: EditablePhoto? = nil
+    @State private var retake = false
     @State private var photoVersion = 0
 
     private var place: Place? { store.place(item.placeId) }
@@ -114,11 +117,17 @@ struct ItemCardView: View {
                         .id(photoVersion)
                         .overlay(alignment: .bottomTrailing) {
                             if editable {
-                                Button {
-                                    Task { if let img = await PhotoStore.image(for: item, thumb: false) { editPhoto = EditablePhoto(image: img) } }
-                                } label: {
-                                    Label("Обрезать · повернуть", systemImage: "crop.rotate").font(.system(size: 13, weight: .semibold))
-                                        .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                HStack(spacing: 8) {
+                                    Button { retake = true } label: {
+                                        Label("Переснять", systemImage: "camera").font(.system(size: 13, weight: .semibold))
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                    }
+                                    Button {
+                                        Task { if let img = await PhotoStore.image(for: item, thumb: false) { editPhoto = EditablePhoto(image: img) } }
+                                    } label: {
+                                        Label("Обрезать · повернуть", systemImage: "crop.rotate").font(.system(size: 13, weight: .semibold))
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                    }
                                 }
                                 .padding(10)
                             }
@@ -169,6 +178,10 @@ struct ItemCardView: View {
             }
             .fullScreenCover(item: $editPhoto) { p in
                 PhotoEditView(image: p.image) { edited in Task { await replacePhoto(edited) } }
+            }
+            // Переснять ту же вещь: системная камера (задняя), фото заменяется под тем же ключом.
+            .fullScreenCover(isPresented: $retake) {
+                CameraPicker { img in if let img { Task { await replacePhoto(img) } } }.ignoresSafeArea()
             }
         }
     }
@@ -262,3 +275,48 @@ struct MoveItemView: View {
 }
 
 struct EditablePhoto: Identifiable { let id = UUID(); let image: UIImage }
+
+/// Минус → красная урна → удаление: два нажатия, без диалога. Через 3 секунды без второго нажатия возвращается к минусу.
+struct TwoStepDelete<Label: View>: View {
+    let onDelete: () -> Void
+    @ViewBuilder let label: (Bool) -> Label
+    @State private var armed = false
+    @State private var disarm: Task<Void, Never>?
+
+    var body: some View {
+        Button {
+            if armed { armed = false; disarm?.cancel(); onDelete() }
+            else {
+                withAnimation(.snappy) { armed = true }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                disarm?.cancel()
+                disarm = Task { try? await Task.sleep(for: .seconds(3)); if !Task.isCancelled { withAnimation(.snappy) { armed = false } } }
+            }
+        } label: { label(armed) }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Задняя камера через системный контроллер — для «Переснять» в карточке вещи.
+struct CameraPicker: UIViewControllerRepresentable {
+    let onPick: (UIImage?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let p = UIImagePickerController()
+        p.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        p.delegate = context.coordinator
+        return p
+    }
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPicker
+        init(_ parent: CameraPicker) { self.parent = parent }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            parent.onPick(info[.originalImage] as? UIImage); parent.dismiss()
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.onPick(nil); parent.dismiss() }
+    }
+}

@@ -162,7 +162,7 @@ struct PlaceView: View {
                         CameraTile(enabled: editable) { showCamera = true }
                         ForEach(items) { it in
                             ItemCell(item: it, status: place.status,
-                                     onMinus: { openItem = it },
+                                     onMinus: { Task { await deleteWithUndo(it) } },
                                      onTake: { Task { try? await store.updateItem(it.id, taken: !it.isTaken) } },
                                      onTap: { openItem = it })
                         }
@@ -176,7 +176,7 @@ struct PlaceView: View {
                         }
                         ForEach(items) { it in
                             ItemRow(item: it, status: place.status,
-                                    onMinus: { openItem = it },
+                                    onMinus: { Task { await deleteWithUndo(it) } },
                                     onTake: { Task { try? await store.updateItem(it.id, taken: !it.isTaken) } },
                                     onTap: { openItem = it })
                         }
@@ -285,6 +285,13 @@ struct PlaceView: View {
         case .done: return "Вещи можно снова отмечать и возвращать."
         case nil: return ""
         }
+    }
+
+    /// Удаление из списка (второе нажатие на урну): сразу, с «Отменить» в тосте.
+    private func deleteWithUndo(_ it: Item) async {
+        guard let removed = try? await store.deleteItem(it.id) else { return }
+        undoAction = { try? await store.restoreItem(removed) }
+        show("Вещь удалена", undo: removed.id, seconds: 5)
     }
 
     private func show(_ text: String, undo: UUID? = nil, seconds: Double = 2) {
