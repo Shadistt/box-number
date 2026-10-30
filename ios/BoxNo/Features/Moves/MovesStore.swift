@@ -24,7 +24,9 @@ final class MovesStore {
             let dests: [MoveDestination] = try await supabase.from("move_destinations").select()
                 .is("deleted_at", value: nil).order("position").execute().value
             destinations = Dictionary(grouping: dests, by: \.moveId)
-            let places: [Place] = try await supabase.from("places").select("id,move_id,number,title,kind,destination_id,status")
+            // Только move_id: полный Place здесь не нужен, а неполный набор колонок ломал декодирование → счётчики «0 мест».
+            struct Row: Decodable { let moveId: UUID; enum CodingKeys: String, CodingKey { case moveId = "move_id" } }
+            let places: [Row] = try await supabase.from("places").select("move_id")
                 .is("deleted_at", value: nil).execute().value
             placesCount = Dictionary(grouping: places, by: \.moveId).mapValues(\.count)
             loaded = true

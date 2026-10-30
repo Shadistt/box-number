@@ -199,9 +199,12 @@ struct PlaceView: View {
             }
             .padding(20).padding(.bottom, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
-            .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
-            .ignoresSafeArea(edges: .bottom)
+            .background {
+                // Фон уходит под индикатор «домой»: иначе снизу остаётся серая полоса.
+                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(.white)
+                    .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
+                    .ignoresSafeArea(edges: .bottom)
+            }
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }

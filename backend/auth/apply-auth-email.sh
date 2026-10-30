@@ -20,7 +20,7 @@ cfg = {
   "smtp_pass": os.environ["RESEND_API_KEY"],
   "smtp_admin_email": "noreply@mail.boxnumber.co",
   "smtp_sender_name": "Box Nº",
-  "smtp_max_frequency": 60,
+  "smtp_max_frequency": 10,   # пауза между письмами на один адрес; 60 с «съедала» повторный код 2FA
   "rate_limit_email_sent": 60,
   **tpl,
 }

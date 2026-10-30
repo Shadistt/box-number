@@ -32,14 +32,16 @@ struct ConfirmEmailView: View {
                             .overlay(RoundedRectangle(cornerRadius: 14).stroke(i == code.count ? Theme.accent : .clear, lineWidth: 2))
                     }
                 }
-                .onTapGesture { focused = true }
-                TextField("", text: $code)
-                    .keyboardType(.numberPad).textContentType(.oneTimeCode)
-                    .focused($focused).opacity(0.01).frame(height: 1)
-                    .onChange(of: code) { _, new in
-                        code = String(new.filter(\.isNumber).prefix(6))
-                        if code.count == 6 { Task { await verify() } }
-                    }
+                .overlay {
+                    TextField("", text: $code)
+                        .keyboardType(.numberPad).textContentType(.oneTimeCode)
+                        .focused($focused).foregroundStyle(.clear).tint(.clear)
+                        .accentColor(.clear)
+                        .onChange(of: code) { _, new in
+                            code = String(new.filter(\.isNumber).prefix(6))
+                            if code.count == 6 { Task { await verify() } }
+                        }
+                }
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             }
             Spacer()
