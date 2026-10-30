@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(SessionStore.self) private var session
+    @State private var profile = ProfileStore.shared
 
     var body: some View {
         ZStack {
@@ -13,9 +14,14 @@ struct RootView: View {
                 AuthView()
             case .signedIn(_, let isNew):
                 HomeView(startEmpty: isNew)
+                    .task { await profile.load() }
+                if profile.loaded, profile.profile?.needsTwoFactorCheck == true {
+                    TwoFactorGateView().transition(.opacity)
+                }
             }
         }
         .animation(.default, value: stateKey)
+        .animation(.default, value: profile.profile?.needsTwoFactorCheck == true)
     }
 
     private var stateKey: Int {

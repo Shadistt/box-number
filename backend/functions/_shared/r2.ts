@@ -32,6 +32,12 @@ export async function presign(key: string, method: "PUT" | "GET", expires: numbe
   return signed.url;
 }
 
+/** Удаление объекта (подписанный DELETE). 404 считаем успехом. */
+export async function r2Delete(key: string): Promise<void> {
+  const res = await r2.fetch(objectURL(key).toString(), { method: "DELETE" });
+  if (!res.ok && res.status !== 404) throw new Error(`R2 DELETE ${key}: ${res.status}`);
+}
+
 export function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }

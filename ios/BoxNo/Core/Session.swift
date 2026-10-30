@@ -34,6 +34,7 @@ final class SessionStore {
 
     func signOut() async {
         MovesStore.clearCache()
+        ProfileStore.shared.clear()
         try? await supabase.auth.signOut()
     }
 }

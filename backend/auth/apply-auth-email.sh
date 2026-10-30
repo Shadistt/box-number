@@ -10,7 +10,10 @@ tpl = json.load(open("email-templates.json")); tpl.pop("_comment", None)
 cfg = {
   "external_email_enabled": True,
   "mailer_autoconfirm": False,
-  "mailer_secure_email_change_enabled": True,
+  "mailer_secure_email_change_enabled": False,   # код только на новый адрес (экран «Сменить email»)
+  "security_manual_linking_enabled": True,       # привязка Apple/Google в «Аккаунте»
+  "mailer_otp_length": 6,
+  "mailer_otp_exp": 900,
   "smtp_host": "smtp.resend.com",
   "smtp_port": "465",
   "smtp_user": "resend",
