@@ -76,8 +76,10 @@ struct PlacesView: View {
                 Chip(title: "Все", selected: filter == nil) { filter = nil }
                 ForEach(kindsPresent) { k in Chip(title: k.short, selected: filter == k) { filter = k } }
             }
+            .padding(.horizontal, 16)
         }
-        .scrollIndicators(.hidden).padding(.horizontal, -16).contentMargins(.horizontal, 16)
+        .scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical]).scrollClipDisabled(false)
+        .padding(.horizontal, -16).frame(height: 36)
     }
 
     @ViewBuilder
