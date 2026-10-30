@@ -12,7 +12,7 @@ struct BoxTileView: View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.18)
                 .fill(packed ? Theme.ink : Color(hex: 0xE8E6E0))
-            if place.kind == .box { box } else { other }
+            if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
         }
         .frame(width: size, height: size)
         .animation(.spring(duration: 0.55, bounce: 0.25), value: packed)

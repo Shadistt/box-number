@@ -25,6 +25,7 @@
     <dict><key>CFBundleURLSchemes</key><array><string>boxno</string></array></dict>
     <dict><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.1076074844899-vvmmnaf81dsf0phgdu71pr80cvhaobva</string></array></dict>
   </array>
+  <key>UIAppFonts</key><array><string>PermanentMarker-Regular.ttf</string></array>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict>
 </plist>

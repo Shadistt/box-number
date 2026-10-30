@@ -181,12 +181,17 @@ struct PlaceTile: View {
             ZStack(alignment: .top) {
                 RoundedRectangle(cornerRadius: 16).fill(place.status == .packed ? Theme.ink : Color(hex: 0xE8E6E0))
                     .aspectRatio(1, contentMode: .fit)
-                VStack {
-                    Image(systemName: place.kind.symbol).font(.system(size: 26, weight: .medium))
-                    Text(place.number).font(.system(size: 40, weight: .heavy, design: .rounded))
+                if place.kind == .box {
+                    Box3DView(number: place.number, openness: place.status == .packed ? 0 : 1, size: 120)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    VStack {
+                        Image(systemName: place.kind.symbol).font(.system(size: 26, weight: .medium))
+                        Text(place.number).font(.system(size: 40, weight: .heavy, design: .rounded))
+                    }
+                    .foregroundStyle(place.status == .packed ? .white : Theme.ink)
+                    .frame(maxHeight: .infinity)
                 }
-                .foregroundStyle(place.status == .packed ? .white : Theme.ink)
-                .frame(maxHeight: .infinity)
                 HStack {
                     if place.status == .packed {
                         Image(systemName: "lock.fill").font(.caption.weight(.bold)).padding(6)
