@@ -20,6 +20,7 @@ struct RootView: View {
                 }
             }
         }
+        .background(KeyboardDismissOnTap().frame(width: 0, height: 0))   // тап мимо поля — клавиатура прячется
         .animation(.default, value: stateKey)
         .animation(.default, value: profile.profile?.needsTwoFactorCheck == true)
     }

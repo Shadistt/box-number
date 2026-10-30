@@ -72,6 +72,7 @@ struct AccountView: View {
             .padding(16)
         }
         .background(Theme.bg)
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Аккаунт").navigationBarTitleDisplayMode(.inline)
         .onAppear {
             first = store.profile?.firstName ?? ""; last = store.profile?.lastName ?? ""

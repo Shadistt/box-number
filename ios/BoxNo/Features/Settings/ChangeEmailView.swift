@@ -73,6 +73,7 @@ struct ChangeEmailView: View {
             .padding(16)
         }
         .background(Theme.bg)
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Email").navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(stage == .done)
         .task { focused = true }

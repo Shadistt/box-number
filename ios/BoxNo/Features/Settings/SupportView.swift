@@ -101,6 +101,7 @@ struct SupportView: View {
             .padding(16)
         }
         .background(Theme.bg)
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Поддержка").navigationBarTitleDisplayMode(.inline)
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
