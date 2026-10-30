@@ -116,7 +116,13 @@ struct PlaceView: View {
                             .onSubmit { saveTitle(); titleFocused = false }
                             .onChange(of: titleFocused) { _, f in if !f { saveTitle() } }
                             .onChange(of: title) { _, _ in scheduleSave() }
-                        Text(subtitle(place)).font(.subheadline).foregroundStyle(Theme.muted)
+                        FlowLayout(spacing: 6) {
+                            ForEach(metaChips(place), id: \.self) { t in
+                                Text(t).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, 9).frame(height: 24)
+                                    .background(.white, in: Capsule())
+                            }
+                        }
                     }
                     .padding(.top, 8)
                 }
@@ -165,10 +171,11 @@ struct PlaceView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
-    private func subtitle(_ p: Place) -> String {
-        var s = "\(p.kind.numberLabel) № \(p.number) · " + Plural.things(items.count)
-        if p.shared { s += " · общая" }
-        return s
+    /// Вариант Б: чипы «№ 3 · Папка · 1 вещь (· Общая)»
+    private func metaChips(_ p: Place) -> [String] {
+        var c = ["№ \(p.number)", p.kindTitle, Plural.things(items.count)]
+        if p.shared { c.append("Общая") }
+        return c
     }
 
     @State private var saveTask: Task<Void, Never>? = nil
