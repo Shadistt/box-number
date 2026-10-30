@@ -106,12 +106,12 @@ struct Box3DView: View, Animatable {
         }
         let top = T
         // задний (fb): шарнир по задней кромке, длина 13 к центру
-        faces.append(flap(hingeA: V3(x: L, y: top, z: K), hingeB: V3(x: R, y: top, z: K), inward: V3(x: 0, y: 0, z: 1), length: 13, color: Color(hex: 0xD6B58F))
+        faces.append(flap(hingeA: V3(x: L, y: top, z: K), hingeB: V3(x: R, y: top, z: K), inward: V3(x: 0, y: 0, z: 1), length: 13, color: Color(hex: 0xD6B58F)))
         // передний (ff)
-        faces.append(flap(hingeA: V3(x: R, y: top, z: F), hingeB: V3(x: L, y: top, z: F), inward: V3(x: 0, y: 0, z: -1), length: 13, color: Color(hex: 0xDDBE9A))
+        faces.append(flap(hingeA: V3(x: R, y: top, z: F), hingeB: V3(x: L, y: top, z: F), inward: V3(x: 0, y: 0, z: -1), length: 13, color: Color(hex: 0xDDBE9A)))
         // левый (fl) и правый (fr): длина 17
-        faces.append(flap(hingeA: V3(x: L, y: top, z: F), hingeB: V3(x: L, y: top, z: K), inward: V3(x: 1, y: 0, z: 0), length: 17, color: Color(hex: 0xE2C6A4))
-        faces.append(flap(hingeA: V3(x: R, y: top, z: K), hingeB: V3(x: R, y: top, z: F), inward: V3(x: -1, y: 0, z: 0), length: 17, color: Color(hex: 0xE2C6A4))
+        faces.append(flap(hingeA: V3(x: L, y: top, z: F), hingeB: V3(x: L, y: top, z: K), inward: V3(x: 1, y: 0, z: 0), length: 17, color: Color(hex: 0xE2C6A4)))
+        faces.append(flap(hingeA: V3(x: R, y: top, z: K), hingeB: V3(x: R, y: top, z: F), inward: V3(x: -1, y: 0, z: 0), length: 17, color: Color(hex: 0xE2C6A4)))
         // скотч по центру верха — виден, когда закрыто
         if openness < 0.35 {
             let tape = [V3(x: -1.5, y: top - 0.3, z: K), V3(x: 1.5, y: top - 0.3, z: K), V3(x: 1.5, y: top - 0.3, z: F), V3(x: -1.5, y: top - 0.3, z: F)]
