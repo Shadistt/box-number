@@ -12,7 +12,7 @@ cfg = {
   "mailer_autoconfirm": False,
   "mailer_secure_email_change_enabled": True,
   "smtp_host": "smtp.resend.com",
-  "smtp_port": 465,
+  "smtp_port": "465",
   "smtp_user": "resend",
   "smtp_pass": os.environ["RESEND_API_KEY"],
   "smtp_admin_email": "noreply@mail.boxnumber.co",
