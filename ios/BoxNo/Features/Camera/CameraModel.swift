@@ -10,6 +10,21 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     private let output = AVCapturePhotoOutput()
     private var configured = false
     private var pending: CheckedContinuation<Data, Error>?
+    private var observers: [NSObjectProtocol] = []
+
+    private override init() {
+        super.init()
+        // Штатные уведомления AVFoundation вместо опроса: ошибка сессии → перезапуск,
+        // конец прерывания (звонок, другое приложение) → снова старт.
+        let nc = NotificationCenter.default
+        observers.append(nc.addObserver(forName: .AVCaptureSessionRuntimeError, object: session, queue: nil) { [weak self] n in
+            print("camera runtime error:", n.userInfo?[AVCaptureSessionErrorKey] ?? "")
+            self?.restart()
+        })
+        observers.append(nc.addObserver(forName: .AVCaptureSessionInterruptionEnded, object: session, queue: nil) { [weak self] _ in
+            self?.start()
+        })
+    }
 
     static func requestAccess() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
