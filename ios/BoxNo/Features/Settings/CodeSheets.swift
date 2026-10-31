@@ -4,6 +4,7 @@ import Supabase
 /// Шесть клеток кода из письма (как на экране подтверждения email) — переиспользуется в настройках.
 struct CodeBoxes: View {
     @Binding var code: String
+    var fill: Color = Theme.bg        // на белой карточке — фон страницы; на самой странице передавать Theme.card
     var onFilled: () -> Void
     @FocusState private var focused: Bool
 
@@ -14,8 +15,8 @@ struct CodeBoxes: View {
                     let ch = i < code.count ? String(code[code.index(code.startIndex, offsetBy: i)]) : ""
                     Text(ch).font(.system(size: 26, weight: .bold))
                         .frame(width: 46, height: 58)
-                        .background(Theme.bg, in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(i == code.count ? Theme.accent : .clear, lineWidth: 2))
+                        .background(fill, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(i == code.count ? Theme.accent : Theme.line, lineWidth: i == code.count ? 2 : 1))
                 }
             }
             // Невидимое поле во всю ширину клеток: автоподстановка кода из «Почты» вставляет текст в поле-первый-ответчик,

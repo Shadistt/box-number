@@ -31,7 +31,7 @@ struct SharedInviteView: View {
                         .frame(width: 72, height: 72).background(Theme.accent, in: Circle()).foregroundStyle(Theme.dark)
                     Text("Ссылка с паролем").font(.system(size: 24, weight: .heavy))
                     Text("Введите 6 цифр, которые вам сообщили отдельно.").foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                    CodeBoxes(code: $password) { Task { await open() } }
+                    CodeBoxes(code: $password, fill: Theme.card) { Task { await open() } }
                 } else {
                     ProgressView()
                 }

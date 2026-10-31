@@ -76,28 +76,38 @@ struct MovesListView: View {
     private func height(_ m: Move) -> CGFloat { heights[m.id] ?? 100 }
 
     /// Долгое нажатие (0.35 с) → перетаскивание. Массив не меняется до отпускания.
+    /// «Зажать и тянуть» без LongPressGesture: она в ScrollView блокировала и прокрутку, и тапы (релизы 41–42).
+    /// Один DragGesture, одновременный со скроллом и кнопкой: пока палец не двигается 0,35 с — «вооружаемся»;
+    /// сдвинулся раньше — это прокрутка, ничего не делаем.
     private func reorderGesture(_ id: UUID, index start: Int) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.35)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .onChanged { value in
-                switch value {
-                case .first(true):
-                    if dragging == nil {
-                        withAnimation(.snappy(duration: 0.2)) { dragging = id }
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    }
-                case .second(true, let drag?):
-                    dragOffset = drag.translation.height
-                    let target = targetIndex(from: start, translation: drag.translation.height)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { v in
+                if dragging == id {
+                    dragOffset = v.translation.height
+                    let target = targetIndex(from: start, translation: v.translation.height)
                     if target != dropIndex {
                         withAnimation(.snappy(duration: 0.25)) { dropIndex = target }
                         UISelectionFeedbackGenerator().selectionChanged()
                     }
-                default: break
+                    return
+                }
+                guard dragging == nil else { return }
+                if pressStart == nil {
+                    pressStart = (id, Date())
+                    armTask?.cancel()
+                    armTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.35))
+                        guard !Task.isCancelled, pressStart?.0 == id, dragging == nil else { return }
+                        withAnimation(.snappy(duration: 0.2)) { dragging = id }
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    }
+                } else if abs(v.translation.height) > 8 || abs(v.translation.width) > 8 {
+                    armTask?.cancel(); pressStart = nil      // поехал раньше — это прокрутка
                 }
             }
-            .onEnded { value in
-                let translation: CGFloat = { if case .second(true, let d?) = value { return d.translation.height } else { return 0 } }()
+            .onEnded { v in
+                armTask?.cancel(); pressStart = nil
+                guard dragging == id else { return }
                 let target = dropIndex ?? start
                 var ids = active.map(\.id)
                 let moved = ids.remove(at: start); ids.insert(moved, at: target)
@@ -105,13 +115,15 @@ struct MovesListView: View {
                 withTransaction(t) {
                     // визуально карточка остаётся под пальцем: компенсируем смену позиции в массиве
                     let delta = topOffset(of: target, in: ids) - topOffset(of: start, in: active.map(\.id))
-                    dragOffset = translation - delta
+                    dragOffset = v.translation.height - delta
                     dropIndex = nil
                     if target != start { Task { await store.reorder(ids) } }
                 }
                 withAnimation(.snappy(duration: 0.25)) { dragOffset = 0; dragging = nil }
             }
     }
+    @State private var pressStart: (UUID, Date)? = nil
+    @State private var armTask: Task<Void, Never>? = nil
 
     /// Верх карточки с данным индексом в заданном порядке (сумма высот + отступы).
     private func topOffset(of index: Int, in ids: [UUID]) -> CGFloat {

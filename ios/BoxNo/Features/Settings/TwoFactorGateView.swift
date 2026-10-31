@@ -20,7 +20,7 @@ struct TwoFactorGateView: View {
             Text("Раз в 30 дней просим код. Отправили его на \(store.profile?.email ?? "ваш email") — iPhone подставит код сам.")
                 .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
             if sent {
-                CodeBoxes(code: $code) { Task { await verify() } }
+                CodeBoxes(code: $code, fill: Theme.card) { Task { await verify() } }   // на фоне страницы клетки были невидимы
                 Text(busy ? "Проверяем…" : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
             } else {
                 ProgressView()
