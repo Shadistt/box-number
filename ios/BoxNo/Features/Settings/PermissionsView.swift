@@ -24,9 +24,7 @@ struct PermissionsView: View {
                     Divider().padding(.leading, 68)
                     row("Фото", "photo.on.rectangle", "Выбор из галереи — через системное окно, разрешение не нужно", status: .notNeeded) {}
                     Divider().padding(.leading, 68)
-                    row("Контакты", "person.crop.circle", contactsSub, status: contactsStatus) {
-                        if contacts == .notDetermined { _ = try? await CNContactStore().requestAccess(for: .contacts); refresh() } else { openSettings() }
-                    }
+                    row("Контакты", "person.crop.circle", "Выбор через окно iOS — видим только выбранных, разрешение не нужно", status: .notNeeded) {}
                     Divider().padding(.leading, 68)
                     row("Уведомления", "bell.badge", "Приглашения и общие места (скоро)", status: notifStatus) {
                         if notifications == .notDetermined { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]); refresh() } else { openSettings() }

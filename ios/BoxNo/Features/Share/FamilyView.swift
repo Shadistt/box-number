@@ -149,7 +149,8 @@ struct InviteFamilyView: View {
             }
             .background(Theme.bg).scrollDismissesKeyboard(.interactively)
             .navigationTitle("Пригласить в семью").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } } }
+            // Крестик, как в Настройках: системная круглая кнопка стоит ровно по линии заголовка, текстовая «пилюля» — нет.
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Image(systemName: "xmark").font(.system(size: 15, weight: .bold)) } } }
             .sheet(isPresented: $contacts) { ContactsPicker { es in for e in es where !emails.contains(e.lowercased()) { emails.append(e.lowercased()) } }.ignoresSafeArea() }
             .task { focused = true }
         }

@@ -62,7 +62,7 @@ struct PasswordCard: View {
     @State private var stage: Stage = .form
     @State private var busy = false
     @State private var error: String?
-    enum Stage { case form, code, done }
+    enum Stage { case form, code, done, resetSent }
 
     private var hasPassword: Bool { store.hasPassword }
     private var email: String { store.profile?.email ?? "" }
@@ -98,6 +98,11 @@ struct PasswordCard: View {
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             Button(hasPassword ? "Сохранить новый пароль" : "Задать пароль") { Task { await submit() } }
                 .buttonStyle(PrimaryButtonStyle()).disabled(!valid || busy).opacity(valid ? 1 : 0.5)
+            if hasPassword {
+                // Забыли текущий — письмо со ссылкой на новый пароль, не выходя из аккаунта.
+                Button("Забыли пароль? Прислать письмо") { Task { await sendReset() } }
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink).frame(maxWidth: .infinity, minHeight: 44)
+            }
             CancelButton(action: close)
         case .code:
             Text("Код из письма").font(.system(size: 22, weight: .heavy))
@@ -106,6 +111,10 @@ struct PasswordCard: View {
             Text(busy ? "Проверяем…" : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             CancelButton(action: close)
+        case .resetSent:
+            Label("Письмо отправлено", systemImage: "envelope.fill").font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
+            Text("На \(email) ушла ссылка для нового пароля. Она действует 1 час.").font(.subheadline).foregroundStyle(Theme.muted)
+            Button("Готово", action: close).buttonStyle(PrimaryButtonStyle())
         case .done:
             Label(hasPassword ? "Пароль изменён" : "Пароль задан", systemImage: "checkmark.circle.fill")
                 .font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
@@ -131,6 +140,12 @@ struct PasswordCard: View {
         } catch {
             self.error = hasPassword ? "Текущий пароль не подошёл." : "Не удалось отправить код: \(error.localizedDescription)"
         }
+    }
+
+    private func sendReset() async {
+        busy = true; defer { busy = false }; error = nil
+        do { try await supabase.auth.resetPasswordForEmail(email, redirectTo: AppConfig.redirectURL); stage = .resetSent }
+        catch { self.error = "Не удалось отправить письмо: \(error.localizedDescription)" }
     }
 
     private func finishWithNonce() async {
