@@ -22,12 +22,14 @@ struct Profile: Codable, Hashable {
 
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
     var hasCustomAvatar: Bool { avatar == "photo" && photo != nil }
-    /// Двухфакторная проверка нужна, если включена и последняя была больше 30 дней назад.
+    /// Двухфакторная проверка нужна, если включена и на ЭТОМ устройстве код не вводили последние 30 дней
+    /// (серверная дата — информационная; иначе после входа на новом телефоне код не спрашивался).
     var needsTwoFactorCheck: Bool {
         guard twoFactor else { return false }
-        guard let at = twoFactorVerifiedAt else { return true }
+        guard let at = UserDefaults.standard.object(forKey: Self.deviceVerifiedKey(id)) as? Date else { return true }
         return Date().timeIntervalSince(at) > 30 * 86_400
     }
+    static func deviceVerifiedKey(_ id: UUID) -> String { "twofa_verified_\(id.uuidString)" }
 }
 
 struct Usage: Decodable {
@@ -152,6 +154,7 @@ final class ProfileStore {
 
     func setTwoFactor(_ on: Bool) async {
         guard var p = profile else { return }
+        UserDefaults.standard.set(Date(), forKey: Profile.deviceVerifiedKey(p.id))   // включили кодом — это устройство проверено
         p.twoFactor = on; p.twoFactorVerifiedAt = Date(); profile = p
         struct Patch: Encodable { var two_factor: Bool; var two_factor_verified_at: Date }
         do { try await supabase.from("profiles").update(Patch(two_factor: on, two_factor_verified_at: Date())).eq("id", value: p.id).execute() } catch { print("2fa:", error) }
@@ -159,6 +162,7 @@ final class ProfileStore {
 
     func markTwoFactorVerified() async {
         guard var p = profile else { return }
+        UserDefaults.standard.set(Date(), forKey: Profile.deviceVerifiedKey(p.id))
         p.twoFactorVerifiedAt = Date(); profile = p
         do { try await supabase.from("profiles").update(["two_factor_verified_at": Date()]).eq("id", value: p.id).execute() } catch { print("2fa verified:", error) }
     }

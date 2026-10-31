@@ -97,14 +97,14 @@ struct PasswordCard: View {
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             Button(hasPassword ? "Сохранить новый пароль" : "Задать пароль") { Task { await submit() } }
                 .buttonStyle(PrimaryButtonStyle()).disabled(!valid || busy).opacity(valid ? 1 : 0.5)
-            Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+            CancelButton(action: close)
         case .code:
             Text("Код из письма").font(.system(size: 22, weight: .heavy))
             Text("Отправили код на \(email). Введите его, чтобы задать пароль.").font(.subheadline).foregroundStyle(Theme.muted)
             CodeBoxes(code: $code) { Task { await finishWithNonce() } }
             Text(busy ? "Проверяем…" : "Код действует 15 минут.").font(.footnote).foregroundStyle(Theme.muted)
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-            Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+            CancelButton(action: close)
         case .done:
             Label(hasPassword ? "Пароль изменён" : "Пароль задан", systemImage: "checkmark.circle.fill")
                 .font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
@@ -172,7 +172,7 @@ struct TwoFactorCard: View {
             }
             .buttonStyle(PrimaryButtonStyle()).disabled(busy)
         }
-        Button("Отмена", action: close).frame(maxWidth: .infinity).foregroundStyle(Theme.muted)
+        CancelButton(action: close)
     }
 
     private func send() async {
@@ -187,6 +187,16 @@ struct TwoFactorCard: View {
             await store.setTwoFactor(turningOn)
             close()
         } else { error = "Код не подошёл. Проверьте письмо."; code = "" }
+    }
+}
+
+/// Вторичная «Отмена» под главной кнопкой: своя высота 48 и отступ — не липнет к кнопке.
+struct CancelButton: View {
+    var title = "Отмена"
+    let action: () -> Void
+    var body: some View {
+        Button(title, action: action).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.muted)
+            .frame(maxWidth: .infinity, minHeight: 48).padding(.top, 6)
     }
 }
 

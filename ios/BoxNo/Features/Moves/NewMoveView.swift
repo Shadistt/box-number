@@ -12,6 +12,7 @@ struct NewMoveView: View {
     // (паттерн Luma / Klarna «Reorder» с Mobbin).
     @State private var dragging: UUID?
     @State private var dragOffset: CGFloat = 0
+    @FocusState private var focusedDest: UUID?
     private let rowStep: CGFloat = 58 + 8
 
     struct Dest: Identifiable { let id = UUID(); var text = "" }
@@ -44,7 +45,11 @@ struct NewMoveView: View {
                             .foregroundStyle(Theme.ink).padding(.horizontal, 16).frame(maxWidth: .infinity).frame(height: 48)
                             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(hex: 0xB9B5AC), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
                             .contentShape(Rectangle())
-                            .onTapGesture { withAnimation(.snappy) { dests.append(Dest()) } }
+                            .onTapGesture {
+                                let d = Dest()
+                                withAnimation(.snappy) { dests.append(d) }
+                                focusedDest = d.id   // курсор сразу в новое поле, клавиатура открыта
+                            }
                         }
                         Text("Первое «Куда» даёт название переезду. Зажмите ≡ и перетащите, чтобы поменять порядок.")
                             .font(.system(size: 13)).foregroundStyle(Theme.muted).padding(.horizontal, 4).padding(.top, 4)
@@ -76,7 +81,7 @@ struct NewMoveView: View {
         return HStack(spacing: 12) {
             Text(i == 0 ? "Куда" : "Куда \(i + 1)").font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.muted).frame(width: 64, alignment: .leading)   // как у «Откуда» — текст в одну линию
-            TextField("Город и/или адрес", text: binding)
+            TextField("Город и/или адрес", text: binding).focused($focusedDest, equals: d.id)
                 .font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
                 .autocorrectionDisabled().textInputAutocapitalization(.words)
             if dests.count > 1 {

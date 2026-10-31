@@ -58,7 +58,7 @@ struct SettingsView: View {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }
                     }
                     SettingsCard {
-                        Button { confirmSignOut = true } label: { Row("Выйти", chevron: false) }
+                        Button { withAnimation(.snappy) { confirmSignOut = true } } label: { Row("Выйти", chevron: false) }
                         Divider().padding(.leading, 16)
                         Button { showDelete = true } label: { Row("Удалить аккаунт", chevron: false, color: .red) }
                     }
@@ -74,10 +74,19 @@ struct SettingsView: View {
                     Button { dismiss() } label: { Image(systemName: "xmark").font(.system(size: 15, weight: .bold)) }
                 }
             }
-            .confirmationDialog("Выйти из аккаунта?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                Button("Выйти", role: .destructive) { Task { await session.signOut(); dismiss() } }
-                Button("Отмена", role: .cancel) {}
-            } message: { Text("Места и фото останутся в облаке — войдёте снова и всё будет на месте.") }
+            // Выход — нижней карточкой, как остальные подтверждения в приложении.
+            .overlay {
+                if confirmSignOut {
+                    BottomCard(isPresented: $confirmSignOut) {
+                        Text("Выйти из аккаунта?").font(.system(size: 22, weight: .heavy))
+                        Text("Места и фото останутся в облаке — войдёте снова и всё будет на месте.").font(.subheadline).foregroundStyle(Theme.muted)
+                        Button("Выйти") { Task { await session.signOut(); dismiss() } }.buttonStyle(PrimaryButtonStyle(fill: .red))
+                        CancelButton { withAnimation(.snappy) { confirmSignOut = false } }
+                    }
+                }
+            }
+            // Потянуть вниз на вложенных экранах закрывало все Настройки целиком — закрываем только крестиком.
+            .interactiveDismissDisabled()
             .navigationDestination(isPresented: $showDelete) { DeleteAccountView() }
             .task { await store.load(); await AccessStore.shared.loadFamily() }
             .refreshable { await store.load(); await AccessStore.shared.loadFamily() }
