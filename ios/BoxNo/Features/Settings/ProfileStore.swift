@@ -13,12 +13,13 @@ struct Profile: Codable, Hashable {
     var locale: String
     var twoFactor: Bool
     var twoFactorVerifiedAt: Date?
+    var hasPassword: Bool = false
     enum CodingKeys: String, CodingKey {
         case id, email, avatar, photo, locale
         case firstName = "first_name", lastName = "last_name"
-        case twoFactor = "two_factor", twoFactorVerifiedAt = "two_factor_verified_at"
+        case twoFactor = "two_factor", twoFactorVerifiedAt = "two_factor_verified_at", hasPassword = "has_password"
     }
-    static let columns = "id,first_name,last_name,email,avatar,photo,locale,two_factor,two_factor_verified_at"
+    static let columns = "id,first_name,last_name,email,avatar,photo,locale,two_factor,two_factor_verified_at,has_password"
 
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
     var hasCustomAvatar: Bool { avatar == "photo" && photo != nil }
@@ -47,7 +48,8 @@ final class ProfileStore {
     var profile: Profile?
     var usage: Usage?
     var identities: [UserIdentity] = []
-    var hasPassword = false
+    /// Пароль задан — из profiles.has_password (синхронизируется триггером с auth.users; identities у Apple/Google-пользователей пароль не отражают).
+    var hasPassword: Bool { profile?.hasPassword ?? false }
     var avatarImage: UIImage?
     var loaded = false
 
@@ -77,9 +79,6 @@ final class ProfileStore {
     func loadIdentities() async {
         do {
             identities = try await supabase.auth.userIdentities()
-            // Пароль «задан», если есть identity email: Supabase создаёт её при регистрации по паролю
-            // или при первом update(password:). Для входа только через Apple/Google её нет.
-            hasPassword = identities.contains { $0.provider == "email" }
         } catch { print("identities:", error) }
     }
 
@@ -175,7 +174,7 @@ final class ProfileStore {
     }
 
     func clear() {
-        profile = nil; usage = nil; identities = []; hasPassword = false; avatarImage = nil; loaded = false
+        profile = nil; usage = nil; identities = []; avatarImage = nil; loaded = false
         try? FileManager.default.removeItem(at: Self.avatarFile)
     }
 }

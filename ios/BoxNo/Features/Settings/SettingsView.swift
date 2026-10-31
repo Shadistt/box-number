@@ -53,6 +53,8 @@ struct SettingsView: View {
                         NavigationLink { LanguageView() } label: { Row("Язык", value: Language.current(store.profile?.locale).native) }
                         Divider().padding(.leading, 16)
                         NavigationLink { ThemeView() } label: { Row("Тема", value: (AppTheme(rawValue: theme) ?? .system).title) }
+                        Divider().padding(.leading, 16)
+                        NavigationLink { PermissionsView() } label: { Row("Разрешения") }
                     }
                     SettingsCard {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }

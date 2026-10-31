@@ -25,14 +25,17 @@ struct MovesListView: View {
                         Text("СЕЙЧАС").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 8)
                         ForEach(Array(active.enumerated()), id: \.element.id) { i, m in
                             let lifted = dragging == m.id
-                            MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0)
+                            // Тап — настоящая кнопка (в 41 жест перетаскивания глотал тап и прокрутку); перетаскивание — одновременный жест.
+                            Button { if dragging == nil { openMove = m } } label: {
+                                MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0)
+                            }
+                                .buttonStyle(.plain)
                                 .background(GeometryReader { g in Color.clear.preference(key: CardHeightKey.self, value: [m.id: g.size.height]) })
                                 .scaleEffect(lifted ? 1.03 : 1)
                                 .shadow(color: .black.opacity(lifted ? 0.22 : 0), radius: lifted ? 16 : 0, y: lifted ? 8 : 0)
                                 .offset(y: lifted ? dragOffset : shift(i))
                                 .zIndex(lifted ? 1 : 0)
                                 .contentShape(Rectangle())
-                                .onTapGesture { if dragging == nil { openMove = m } }
                                 // simultaneousGesture: иначе жест перехватывал прокрутку списка
                                 .simultaneousGesture(reorderGesture(m.id, index: i))
                         }

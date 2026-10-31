@@ -120,6 +120,7 @@ struct PasswordCard: View {
                 // Supabase не проверяет текущий пароль при смене — проверяем сами повторным входом.
                 _ = try await supabase.auth.signIn(email: email, password: current)
                 _ = try await supabase.auth.update(user: UserAttributes(password: new))
+                await store.load()
                 stage = .done
             } else {
                 // Пароля нет: подтверждение кодом (reauthentication nonce), затем update(password:nonce:).
@@ -135,7 +136,7 @@ struct PasswordCard: View {
         busy = true; defer { busy = false }; error = nil
         do {
             _ = try await supabase.auth.update(user: UserAttributes(password: new, nonce: code))
-            await store.loadIdentities()
+            await store.load()          // profiles.has_password обновился триггером — строка «Пароль» покажет ••••••••
             stage = .done
         } catch { self.error = "Код не подошёл. Проверьте письмо."; code = "" }
     }
