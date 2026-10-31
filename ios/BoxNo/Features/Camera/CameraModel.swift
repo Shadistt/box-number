@@ -45,10 +45,12 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     /// Перезапуск: нужен, когда к уже идущей сессии подключили новый слой превью и он не получил поток.
     private var lastRestart = Date.distantPast
 
-    /// Не чаще раза в 5 секунд: перезапуск сам по себе даёт рывок превью.
-    func restart() {
+    /// Не чаще раза в 5 секунд (перезапуск сам по себе даёт рывок превью) — кроме `force`: открытие полного экрана.
+    /// Без force второе открытие камеры в течение 5 секунд оставалось чёрным: новый слой превью по документации
+    /// начинает показывать кадры только после startRunning(), а перезапуск отбрасывался как «слишком частый».
+    func restart(force: Bool = false) {
         queue.async { [self] in
-            guard Date().timeIntervalSince(lastRestart) > 5 else { return }
+            guard force || Date().timeIntervalSince(lastRestart) > 5 else { return }
             lastRestart = Date()
             if !configured { configure() }
             guard configured else { return }
