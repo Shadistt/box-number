@@ -57,7 +57,9 @@ struct SharedInviteView: View {
             place = try await access.openShareLink(code: code, password: password.isEmpty ? nil : password)
             MovesStore.clearCache()
         } catch {
-            let msg = "\(error)"
+            // RAISE EXCEPTION из open_share_link приходит как PostgrestError.message (supabase-swift 2.x);
+            // для прочих ошибок — описание целиком.
+            let msg = (error as? PostgrestError)?.message ?? "\(error)"
             if msg.contains("password") { if needPassword && !password.isEmpty { self.error = "Неверный пароль"; password = "" }; needPassword = true }
             else if msg.contains("link_off") { self.error = "Ссылка выключена или неверна" }
             else if msg.contains("locked") { self.error = "Слишком много неверных паролей. Попробуйте через 15 минут" }
