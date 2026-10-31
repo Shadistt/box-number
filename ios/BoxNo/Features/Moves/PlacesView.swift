@@ -132,7 +132,7 @@ struct PlacesView: View {
             ForEach(filtered) { p in
                 Button { open = PlaceRef(id: p.id) } label: {
                     PlaceTile(place: p, count: store.items(of: p.id).count, destination: store.destination(p.destinationId)?.name,
-                              query: query, matchedItems: matchedItems(in: p))
+                              query: query, matchedItems: matchedItems(in: p), sharedWith: store.sharedWith[p.id] ?? [])
                 }.buttonStyle(.plain)
             }
         }
@@ -189,6 +189,7 @@ struct PlaceTile: View {
     let destination: String?
     var query = ""
     var matchedItems: [String] = []
+    var sharedWith: [UUID] = []
 
     private var tileStatus: String {
         switch place.status {
@@ -246,6 +247,18 @@ struct PlaceTile: View {
                 }.padding(8)
             }
             Text(highlight(place.displayTitle, query)).font(.system(size: 15, weight: .bold)).lineLimit(1)
+            if !sharedWith.isEmpty {
+                // «Общая»: с кем поделились — стопка аватарок + имена (паттерн shared-with в Files / Notes)
+                HStack(spacing: 6) {
+                    HStack(spacing: -8) {
+                        ForEach(sharedWith.prefix(3), id: \.self) { u in
+                            PersonAvatar(person: AccessStore.shared.person(u), size: 20)
+                                .overlay(Circle().stroke(Theme.card, lineWidth: 2))
+                        }
+                    }
+                    Text(sharedNames).font(.caption2).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+            }
             if !matchedItems.isEmpty {
                 // Почему место в выдаче: совпавшие вещи, до двух названий + «+N».
                 let shown = matchedItems.prefix(2).joined(separator: ", ") + (matchedItems.count > 2 ? " +\(matchedItems.count - 2)" : "")
@@ -259,6 +272,10 @@ struct PlaceTile: View {
         .task(id: place.numberPhoto) { photo = place.numberPhoto == nil ? nil : await PhotoStore.image(forPlace: place, thumb: true) }
     }
     @State private var photo: UIImage? = nil
+    private var sharedNames: String {
+        let names = sharedWith.prefix(2).map { AccessStore.shared.person($0)?.firstName.nilIfEmpty ?? AccessStore.shared.person($0)?.name ?? "…" }
+        return "Общая · " + names.joined(separator: ", ") + (sharedWith.count > 2 ? " +\(sharedWith.count - 2)" : "")
+    }
 }
 
 struct Chip: View {
@@ -339,3 +356,5 @@ func highlight(_ text: String, _ query: String) -> AttributedString {
     }
     return a
 }
+
+extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }

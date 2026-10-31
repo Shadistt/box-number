@@ -10,6 +10,7 @@ final class PlacesStore {
     var destinations: [MoveDestination]
     var places: [Place] = []
     var items: [UUID: [Item]] = [:]          // place_id → вещи
+    var sharedWith: [UUID: [UUID]] = [:]     // place_id → кому открыто отдельно (place_access), для пометки «Общая» на плитке
     var loading = false
     var loaded = false
     var error: String?
@@ -37,6 +38,11 @@ final class PlacesStore {
                     .in("place_id", values: ids).is("deleted_at", value: nil)
                     .order("position").order("created_at").execute().value
                 items = Dictionary(grouping: all, by: \.placeId)
+                struct PA: Decodable { let placeId: UUID; let userId: UUID?; enum CodingKeys: String, CodingKey { case placeId = "place_id", userId = "user_id" } }
+                if let pa: [PA] = try? await supabase.from("place_access").select("place_id,user_id").in("place_id", values: ids).eq("status", value: "active").execute().value {
+                    sharedWith = Dictionary(grouping: pa.compactMap { r in r.userId.map { (r.placeId, $0) } }, by: \.0).mapValues { $0.map(\.1) }
+                    await AccessStore.shared.loadPeople(Array(Set(pa.compactMap(\.userId))))
+                }
             }
             destinations = try await supabase.from("move_destinations").select()
                 .eq("move_id", value: move.id.uuidString).is("deleted_at", value: nil)
