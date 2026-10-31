@@ -34,18 +34,34 @@ Deno.serve(async (req) => {
       const { data: inFamily } = await admin.from("family_members").select("id").eq("user_id", existing.id).maybeSingle();
       if (inFamily) return json({ error: "in_family" }, 409);
     }
-    const { error } = await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
-    err = error?.message ?? null; what = "в семью";
+    // on_conflict не ловит повторные приглашения (user_id null) — проверяем email сами, иначе «Напомнить» плодил бы строки
+    const { data: dup } = existing ? { data: null } : await sb.from("family_members").select("id").eq("family_id", fid).eq("invited_email", email).maybeSingle();
+    if (!dup) {
+      const { error } = await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
+      err = error?.message ?? null;
+    }
+    what = "в семью";
   } else if (kind === "move" && typeof b.move_id === "string") {
-    const { error } = await sb.from("move_access").upsert({ move_id: b.move_id, role, granted_by: user.id, ...target }, { onConflict: "move_id,user_id" });
-    err = error?.message ?? null; what = "в переезд";
+    const { data: dupM } = existing ? { data: null } : await sb.from("move_access").select("id").eq("move_id", b.move_id).eq("invited_email", email).maybeSingle();
+    if (!dupM) {
+      const { error } = await sb.from("move_access").upsert({ move_id: b.move_id, role, granted_by: user.id, ...target }, { onConflict: "move_id,user_id" });
+      err = error?.message ?? null;
+    }
+    what = "в переезд";
     // в переезд → заодно в семью, как в ТЗ §9
     const { data: fid } = await sb.rpc("my_family");
-    await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
+    const { data: inFam } = existing
+      ? await admin.from("family_members").select("id").eq("user_id", existing.id).maybeSingle()
+      : await sb.from("family_members").select("id").eq("family_id", fid).eq("invited_email", email).maybeSingle();
+    if (!inFam) await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
   } else if (kind === "place" && typeof b.place_id === "string") {
-    const { error } = await sb.from("place_access").upsert({ place_id: b.place_id, role, granted_by: user.id, ...target }, { onConflict: "place_id,user_id" });
-    err = error?.message ?? null; what = "к месту";
-    if (!error) await sb.from("places").update({ shared: true }).eq("id", b.place_id);
+    const { data: dupP } = existing ? { data: null } : await sb.from("place_access").select("id").eq("place_id", b.place_id).eq("invited_email", email).maybeSingle();
+    if (!dupP) {
+      const { error } = await sb.from("place_access").upsert({ place_id: b.place_id, role, granted_by: user.id, ...target }, { onConflict: "place_id,user_id" });
+      err = error?.message ?? null;
+    }
+    what = "к месту";
+    if (!err) await sb.from("places").update({ shared: true }).eq("id", b.place_id);
   } else return json({ error: "kind" }, 400);
   if (err) { console.error(err); return json({ error: "insert_failed", detail: err }, 400); }
 
