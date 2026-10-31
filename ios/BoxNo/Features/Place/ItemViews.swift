@@ -6,6 +6,7 @@ struct ItemThumb: View {
     var size: CGFloat? = nil
     var full = false
     @State private var image: UIImage? = nil
+    @State private var changes = PhotoStore.Changes.shared
 
     var body: some View {
         Color.clear
@@ -22,7 +23,7 @@ struct ItemThumb: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: size.map { $0 * 0.25 } ?? 16))
-        .task(id: item.id) { image = await PhotoStore.image(for: item, thumb: !full) }
+        .task(id: "\(item.id)-\(changes.version)") { image = await PhotoStore.image(for: item, thumb: !full) }
     }
 }
 

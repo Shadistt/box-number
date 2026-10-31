@@ -8,6 +8,7 @@ struct BoxTileView: View {
     /// Показывать мини-камеру (намёк «можно добавить фото») — на экране места, не в сетке.
     var cameraHint = false
     @State private var photo: UIImage? = nil
+    @State private var changes = PhotoStore.Changes.shared
 
     private var packed: Bool { place.status == .packed }
 
@@ -39,7 +40,7 @@ struct BoxTileView: View {
             }
         }
         .animation(.spring(duration: 0.55, bounce: 0.25), value: packed)
-        .task(id: place.numberPhoto) {
+        .task(id: "\(place.numberPhoto ?? "")-\(changes.version)") {   // при пересъёмке ключ тот же — обновляемся по счётчику замен
             photo = place.numberPhoto == nil ? nil : await PhotoStore.image(forPlace: place, thumb: size <= 160)
         }
     }

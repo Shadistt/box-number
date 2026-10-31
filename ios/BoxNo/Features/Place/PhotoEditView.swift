@@ -41,6 +41,7 @@ struct PhotoEditView: View {
                     RoundedRectangle(cornerRadius: 2).stroke(.white, lineWidth: 1.5).frame(width: frame, height: frame).allowsHitTesting(false)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()                          // сильно приближённое фото не наезжает на шапку и кнопки поворота
                 .contentShape(Rectangle())
                 .gesture(SimultaneousGesture(
                     MagnifyGesture().onChanged { v in zoom = min(max(zoomStart * v.magnification, 1), 6) }

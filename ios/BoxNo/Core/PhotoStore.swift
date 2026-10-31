@@ -11,6 +11,10 @@ enum PhotoStore {
     }()
     private static let cache = NSCache<NSString, UIImage>()
 
+    /// Счётчик замен фото: превью в сетке держат картинку в @State и перезагружаются по изменению `version`
+    /// (id вещи при «Переснять»/«Обрезать» не меняется, и без этого плитка показывала старое фото).
+    @MainActor @Observable final class Changes { static let shared = Changes(); var version = 0 }
+
     static func localURL(_ id: UUID, thumb: Bool) -> URL {
         dir.appendingPathComponent(id.uuidString + (thumb ? "_t.jpg" : ".jpg"))
     }
@@ -24,6 +28,7 @@ enum PhotoStore {
         try? thumb.write(to: localURL(id, thumb: true), options: .atomic)
         cache.removeObject(forKey: id.uuidString as NSString)
         cache.removeObject(forKey: (id.uuidString + "_t") as NSString)
+        Task { @MainActor in Changes.shared.version += 1 }
         return (photo, thumb)
     }
 
