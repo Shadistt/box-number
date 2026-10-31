@@ -60,6 +60,8 @@ struct SharedInviteView: View {
             let msg = "\(error)"
             if msg.contains("password") { if needPassword && !password.isEmpty { self.error = "Неверный пароль"; password = "" }; needPassword = true }
             else if msg.contains("link_off") { self.error = "Ссылка выключена или неверна" }
+            else if msg.contains("locked") { self.error = "Слишком много неверных паролей. Попробуйте через 15 минут" }
+            else if msg.contains("rate_limit") { self.error = "Слишком много попыток. Попробуйте через час" }
             else { self.error = "Не удалось открыть: \(error.localizedDescription)" }
         }
     }

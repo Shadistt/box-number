@@ -9,7 +9,8 @@ struct SharePlaceView: View {
     @State private var access = AccessStore.shared
     @State private var share: PlaceShare? = nil
     @State private var rows: [AccessRow] = []
-    @State private var viaMove: [AccessRow] = []    // видят через доступ ко всему переезду — показываем серым, без правки
+    @State private var viaMove: [AccessRow] = []
+    @State private var failedAttempts = 0           // неверные пароли по ссылке за 7 дней — сигнал владельцу    // видят через доступ ко всему переезду — показываем серым, без правки
     @State private var password: String? = nil      // показываем только что заданный пароль; старый не восстановить
     @State private var busy = false
     @State private var toast: String? = nil
@@ -82,6 +83,10 @@ struct SharePlaceView: View {
                                 }
                                 .font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.ink)
                                 .padding(16)
+                            }
+                            if failedAttempts > 0 {
+                                Label("Были попытки подбора пароля: \(failedAttempts) за 7 дней. Сгенерируйте новый или выключите ссылку.", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.footnote).foregroundStyle(.red).padding(.horizontal, 16).padding(.bottom, 14)
                             }
                         } else {
                             Text("Ссылка выключена. Те, у кого она уже есть, больше не откроют место.")
@@ -169,6 +174,8 @@ struct SharePlaceView: View {
                 share = await access.placeShare(placeId)
                 rows = await access.placeAccess(placeId)
                 viaMove = await access.moveAccess(store.move.id)
+                struct P: Encodable { var p_place: UUID }
+                failedAttempts = (try? await supabase.rpc("link_failed_attempts", params: P(p_place: placeId)).execute().value) ?? 0
             }
         }
     }
