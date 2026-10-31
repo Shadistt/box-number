@@ -9,6 +9,8 @@ final class MovesStore {
     var moves: [Move] = []
     var destinations: [UUID: [MoveDestination]] = [:]
     var placesCount: [UUID: Int] = [:]
+    /// Места из чужих переездов, к которым мне дали доступ (§8): переезд целиком не виден.
+    var sharedPlaces: [Place] = []
     var loading = false
     var loaded = false            // был ли хоть один ответ сервера или кеш
     var error: String?
@@ -24,11 +26,12 @@ final class MovesStore {
             let dests: [MoveDestination] = try await supabase.from("move_destinations").select()
                 .is("deleted_at", value: nil).order("position").execute().value
             destinations = Dictionary(grouping: dests, by: \.moveId)
-            // Только move_id: полный Place здесь не нужен, а неполный набор колонок ломал декодирование → счётчики «0 мест».
-            struct Row: Decodable { let moveId: UUID; enum CodingKeys: String, CodingKey { case moveId = "move_id" } }
-            let places: [Row] = try await supabase.from("places").select("move_id")
-                .is("deleted_at", value: nil).execute().value
+            // Все видимые места (RLS): счётчики по переездам + общие места из чужих переездов.
+            let places: [Place] = try await supabase.from("places").select(Place.columns)
+                .is("deleted_at", value: nil).order("created_at").execute().value
             placesCount = Dictionary(grouping: places, by: \.moveId).mapValues(\.count)
+            let mine = Set(moves.map(\.id))
+            sharedPlaces = places.filter { !mine.contains($0.moveId) }
             loaded = true
             saveCache()
         } catch { self.error = error.localizedDescription }
@@ -48,17 +51,17 @@ final class MovesStore {
 
     // MARK: кеш главного экрана — чтобы карточки были на месте сразу при запуске
 
-    private struct Snapshot: Codable { var moves: [Move]; var destinations: [UUID: [MoveDestination]]; var placesCount: [UUID: Int] }
+    private struct Snapshot: Codable { var moves: [Move]; var destinations: [UUID: [MoveDestination]]; var placesCount: [UUID: Int]; var sharedPlaces: [Place]? }
     private static let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("moves.json")
 
     private func restoreCache() {
         guard let data = try? Data(contentsOf: Self.cacheURL),
               let snap = try? JSONDecoder.supabase.decode(Snapshot.self, from: data) else { return }
-        moves = snap.moves; destinations = snap.destinations; placesCount = snap.placesCount; loaded = true
+        moves = snap.moves; destinations = snap.destinations; placesCount = snap.placesCount; sharedPlaces = snap.sharedPlaces ?? []; loaded = true
     }
 
     private func saveCache() {
-        let snap = Snapshot(moves: moves, destinations: destinations, placesCount: placesCount)
+        let snap = Snapshot(moves: moves, destinations: destinations, placesCount: placesCount, sharedPlaces: sharedPlaces)
         if let data = try? JSONEncoder.supabase.encode(snap) { try? data.write(to: Self.cacheURL, options: .atomic) }
     }
 

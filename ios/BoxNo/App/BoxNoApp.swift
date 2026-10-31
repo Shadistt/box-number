@@ -16,6 +16,7 @@ struct BoxNoApp: App {
                 .onOpenURL { url in
                     // Возврат из Google Sign-In или из письма со ссылкой.
                     if GIDSignIn.sharedInstance.handle(url) { return }
+                    if session.handle(url: url) { return }
                     Task { try? await supabase.auth.session(from: url) }
                 }
         }

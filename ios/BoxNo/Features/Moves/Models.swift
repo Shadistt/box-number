@@ -10,6 +10,8 @@ struct Move: Codable, Identifiable, Hashable {
     var nextNumber: Int
     var position: Int = 0
     var createdAt: Date
+    /// Для мест из чужих переездов (доступ только к месту): переезд целиком нам не виден.
+    static func placeholder(id: UUID) -> Move { Move(id: id, ownerId: id, title: "Общее место", fromCity: "", status: "active", nextNumber: 1, createdAt: Date()) }
     enum CodingKeys: String, CodingKey { case id, title, status, position
         case ownerId = "owner_id", fromCity = "from_city", nextNumber = "next_number", createdAt = "created_at" }
 }

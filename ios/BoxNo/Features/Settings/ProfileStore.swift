@@ -65,6 +65,7 @@ final class ProfileStore {
         } catch { print("profile load:", error) }
         await loadUsage()
         await loadIdentities()
+        await AccessStore.shared.claimInvites()   // приглашения по моему email → доступ
     }
 
     func loadUsage() async {

@@ -48,7 +48,7 @@ struct SettingsView: View {
 
                     SectionTitle("Настройки")
                     SettingsCard {
-                        NavigationLink { FamilyPlaceholderView() } label: { Row("Моя семья", value: "скоро") }
+                        NavigationLink { FamilyView() } label: { Row("Моя семья", value: familyValue) }
                         Divider().padding(.leading, 16)
                         NavigationLink { LanguageView() } label: { Row("Язык", value: Language.current(store.profile?.locale).native) }
                         Divider().padding(.leading, 16)
@@ -79,10 +79,15 @@ struct SettingsView: View {
                 Button("Отмена", role: .cancel) {}
             } message: { Text("Места и фото останутся в облаке — войдёте снова и всё будет на месте.") }
             .navigationDestination(isPresented: $showDelete) { DeleteAccountView() }
-            .task { await store.load() }
-            .refreshable { await store.load() }
+            .task { await store.load(); await AccessStore.shared.loadFamily() }
+            .refreshable { await store.load(); await AccessStore.shared.loadFamily() }
         }
         .tint(Theme.ink)
+    }
+
+    private var familyValue: String {
+        let n = AccessStore.shared.family.count
+        return n <= 1 ? "только вы" : n.people
     }
 
     private var syncText: String {
@@ -146,17 +151,5 @@ struct CircleButton: View {
                 .frame(width: 40, height: 40).background(Theme.card, in: Circle())
         }
         .foregroundStyle(Theme.ink)
-    }
-}
-
-/// Заглушка до раздела «Семья» (§9).
-struct FamilyPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.2").font(.system(size: 34, weight: .semibold)).foregroundStyle(Theme.muted)
-            Text("Семья появится вместе с общим доступом к местам.").multilineTextAlignment(.center).foregroundStyle(Theme.muted)
-        }
-        .padding(32).frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg)
-        .navigationTitle("Моя семья").navigationBarTitleDisplayMode(.inline)
     }
 }

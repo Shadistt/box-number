@@ -120,7 +120,7 @@ struct PlaceView: View {
                 show("Вещь удалена", undo: removed.id, seconds: 5)
             }
         }
-        .alert("Поделиться местом", isPresented: $showShare) { Button("Ок") {} } message: { Text("Ссылка и доступ — в следующей сборке.") }
+        .sheet(isPresented: $showShare) { SharePlaceView(store: store, placeId: placeId) }
         .confirmationDialog(lockTitle, isPresented: .init(get: { lockDialog != nil }, set: { if !$0 { lockDialog = nil } }), titleVisibility: .visible) {
             switch lockDialog {
             case .pack: EmptyView()

@@ -10,6 +10,7 @@ struct PlacesView: View {
     @State private var open: PlaceRef? = nil
     @State private var creating = false
     @FocusState private var searching: Bool
+    @State private var showWhoSees = false
 
     enum Tab: String, CaseIterable { case places = "Места", items = "Вещи" }
     struct PlaceRef: Identifiable, Hashable { let id: UUID }
@@ -73,6 +74,14 @@ struct PlacesView: View {
         .background(Theme.bg)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(searching ? .hidden : .visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { showWhoSees = true } label: { Label("Кто видит переезд", systemImage: "person.2") }
+                } label: { Image(systemName: "ellipsis.circle") }
+            }
+        }
+        .sheet(isPresented: $showWhoSees) { MoveFamilyView(move: store.move, placesCount: store.places.count) }
         .animation(.snappy, value: searching)
         .task { await store.load() }
         .onAppear { if store.loaded { Task { await store.load() } } }

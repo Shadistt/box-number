@@ -5,6 +5,7 @@ struct MovesListView: View {
     @State private var store = MovesStore()
     @State private var showNew = false
     @State private var openMove: Move? = nil
+    @State private var openShared: Place? = nil
     // Зажать карточку → поднимается, тянем вверх/вниз, соседи раздвигаются (тот же паттерн, что направления).
     @State private var dragging: UUID? = nil
     @State private var dragOffset: CGFloat = 0
@@ -18,7 +19,7 @@ struct MovesListView: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing) {
-                    if store.moves.isEmpty && store.loaded && !store.loading {
+                    if store.moves.isEmpty && store.sharedPlaces.isEmpty && store.loaded && !store.loading {
                         EmptyMovesView()
                     } else {
                         Text("СЕЙЧАС").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 8)
@@ -34,6 +35,22 @@ struct MovesListView: View {
                                 .onTapGesture { if dragging == nil { openMove = m } }
                                 .gesture(reorderGesture(m.id, index: i))
                         }
+                        if !store.sharedPlaces.isEmpty {
+                            Text("ОБЩИЕ МЕСТА").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 12)
+                            ForEach(store.sharedPlaces) { p in
+                                Button { openShared = p } label: {
+                                    HStack(spacing: 12) {
+                                        BoxTileView(place: p, size: 56)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("\(p.kind.numberLabel) № \(p.number) · \(p.displayTitle)").font(.system(size: 16, weight: .bold)).lineLimit(1)
+                                            Text("Общее · вам открыли доступ").font(.footnote).foregroundStyle(Theme.muted)
+                                        }
+                                        Spacer(); Chevron()
+                                    }
+                                    .padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 18)).contentShape(RoundedRectangle(cornerRadius: 18))
+                                }.buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
                 .padding(.bottom, 110)
@@ -45,6 +62,7 @@ struct MovesListView: View {
             .padding(.bottom, 20)
         }
         .navigationDestination(item: $openMove) { m in PlacesView(move: m, destinations: store.destinations[m.id] ?? []) }
+        .navigationDestination(item: $openShared) { p in PlaceView(store: PlacesStore(move: .placeholder(id: p.moveId), destinations: []), placeId: p.id) }
         .task { await store.load() }
         .onAppear { Task { await store.load() } }
         .refreshable { await store.load() }
