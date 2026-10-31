@@ -27,7 +27,7 @@ struct SharePeopleView: View {
     private var q: String { query.trimmingCharacters(in: .whitespaces) }
     private var isEmail: Bool { q.contains("@") && q.contains(".") && !q.contains(" ") }
     private var familyRows: [FamilyMember] { access.others.filter { matches($0) } }
-    private var recentRows: [UUID] { access.recent.filter { !access.family.contains(where: { f in f.userId == $0 }) && matches($0) } }
+    private var recentRows: [UUID] { access.recent.filter { u in !access.family.contains(where: { f in f.userId == u }) && matches(u) } }
 
     var body: some View {
         NavigationStack {
