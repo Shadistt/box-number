@@ -51,17 +51,66 @@ struct ListLongPress: UIViewRepresentable {
         /// в сборке 78 долгое нажатие не срабатывало вовсе. Разрешаем одновременное распознавание.
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 
+        // Автопрокрутка у краёв: палец с карточкой у верха/низа списка — список едет сам (как в UIKit-списках).
+        private var displayLink: CADisplayLink?
+        private var lastPoint: CGPoint = .zero
+        private var offsetAtBegan: CGFloat = 0
+        private var scrollSpeed: CGFloat = 0        // pt за кадр, знак — направление
+        private let edge: CGFloat = 72
+        private let maxSpeed: CGFloat = 14
+
+        /// Точка для SwiftUI: окно + сколько список уехал с момента подъёма — карточка остаётся «под пальцем» относительно содержимого.
+        private func adjusted(_ scroll: UIScrollView?) -> CGPoint {
+            CGPoint(x: lastPoint.x, y: lastPoint.y + ((scroll?.contentOffset.y ?? offsetAtBegan) - offsetAtBegan))
+        }
+
         @objc private func handle(_ g: UILongPressGestureRecognizer) {
-            let p = g.location(in: nil)
+            let scroll = g.view as? UIScrollView
+            lastPoint = g.location(in: nil)
             switch g.state {
             case .began:
                 // Карточка поднялась — прокрутку этого касания обрываем сразу (scrollDisabled в SwiftUI догонит на следующем кадре).
-                if let scroll = g.view as? UIScrollView { scroll.panGestureRecognizer.isEnabled = false; scroll.panGestureRecognizer.isEnabled = true }
-                parent.began(p)
-            case .changed: parent.moved(p)
-            case .ended: parent.ended(p)
-            default: parent.cancelled()
+                scroll?.panGestureRecognizer.isEnabled = false; scroll?.panGestureRecognizer.isEnabled = true
+                offsetAtBegan = scroll?.contentOffset.y ?? 0
+                parent.began(lastPoint)
+                startAutoScroll(scroll)
+            case .changed:
+                updateSpeed(scroll)
+                parent.moved(adjusted(scroll))
+            case .ended:
+                stopAutoScroll()
+                parent.ended(adjusted(scroll))
+            default:
+                stopAutoScroll()
+                parent.cancelled()
             }
+        }
+
+        private func updateSpeed(_ scroll: UIScrollView?) {
+            guard let scroll else { scrollSpeed = 0; return }
+            let y = scroll.convert(lastPoint, from: nil).y - scroll.contentOffset.y     // в видимой области
+            let top = scroll.adjustedContentInset.top, bottom = scroll.bounds.height - scroll.adjustedContentInset.bottom
+            if y < top + edge { scrollSpeed = -maxSpeed * min(1, (top + edge - y) / edge) }
+            else if y > bottom - edge { scrollSpeed = maxSpeed * min(1, (y - (bottom - edge)) / edge) }
+            else { scrollSpeed = 0 }
+        }
+
+        private func startAutoScroll(_ scroll: UIScrollView?) {
+            guard scroll != nil, displayLink == nil else { return }
+            let link = CADisplayLink(target: self, selector: #selector(tick))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+        private func stopAutoScroll() { displayLink?.invalidate(); displayLink = nil; scrollSpeed = 0 }
+
+        @objc private func tick() {
+            guard scrollSpeed != 0, let scroll = recognizer?.view as? UIScrollView else { return }
+            let minY = -scroll.adjustedContentInset.top
+            let maxY = max(minY, scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height)
+            let y = min(max(scroll.contentOffset.y + scrollSpeed, minY), maxY)
+            guard y != scroll.contentOffset.y else { return }
+            scroll.contentOffset.y = y
+            parent.moved(adjusted(scroll))
         }
     }
 }
