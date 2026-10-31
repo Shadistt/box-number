@@ -67,6 +67,15 @@ final class MovesStore {
 
     static func clearCache() { try? FileManager.default.removeItem(at: cacheURL) }
 
+    /// Удалить переезд: мягко (deleted_at) — переезд и его места исчезают из списков, фото в R2 чистятся отдельно (todo: R2 orphans).
+    /// Статическая: вызывается с экрана мест; главный перезагружает список при возврате (onAppear → load).
+    static func deleteMove(_ id: UUID) async throws {
+        let now = Date()
+        try await supabase.from("places").update(["deleted_at": now]).eq("move_id", value: id).execute()
+        try await supabase.from("moves").update(["deleted_at": now]).eq("id", value: id).execute()
+        clearCache()
+    }
+
     func createMove(from: String, to: [String]) async throws -> Move {
         let user = try await supabase.auth.session.user
         let move: Move = try await supabase.from("moves")

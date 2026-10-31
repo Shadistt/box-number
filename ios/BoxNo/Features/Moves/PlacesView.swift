@@ -11,6 +11,10 @@ struct PlacesView: View {
     @State private var creating = false
     @FocusState private var searching: Bool
     @State private var showWhoSees = false
+    @State private var confirmDelete = false
+    @State private var deleting = false
+    @Environment(\.dismiss) private var dismiss
+    private var isOwner: Bool { store.move.ownerId == supabase.auth.currentUser?.id }
 
     enum Tab: String, CaseIterable { case places = "Места", items = "Вещи" }
     struct PlaceRef: Identifiable, Hashable { let id: UUID }
@@ -78,10 +82,29 @@ struct PlacesView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showWhoSees = true } label: { Label("Кто видит переезд", systemImage: "person.2") }
+                    if isOwner {
+                        Divider()
+                        Button(role: .destructive) { withAnimation(.snappy) { confirmDelete = true } } label: { Label("Удалить переезд", systemImage: "trash") }
+                    }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
         .sheet(isPresented: $showWhoSees) { MoveFamilyView(move: store.move, placesCount: store.places.count) }
+        // Удаление — только с подтверждением, нижней карточкой, как остальные подтверждения в приложении.
+        .overlay {
+            if confirmDelete {
+                BottomCard(isPresented: $confirmDelete) {
+                    Text("Удалить переезд?").font(.system(size: 22, weight: .heavy))
+                    Text(store.places.isEmpty ? "Переезд исчезнет из списка." : "Вместе с ним пропадут \(store.places.count.placesWord) и все их фото. Отменить будет нельзя.")
+                        .font(.subheadline).foregroundStyle(Theme.muted)
+                    Button { Task { await deleteMove() } } label: {
+                        if deleting { ProgressView().tint(Theme.onInk) } else { Text("Удалить") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle(fill: .red)).disabled(deleting)
+                    CancelButton { withAnimation(.snappy) { confirmDelete = false } }
+                }
+            }
+        }
         .animation(.snappy, value: searching)
         .task { await store.load() }
         .onAppear { if store.loaded { Task { await store.load() } } }
@@ -90,6 +113,12 @@ struct PlacesView: View {
         }
         .navigationDestination(item: $open) { ref in PlaceView(store: store, placeId: ref.id) }
         .overlay { if creating { ProgressView().controlSize(.large) } }
+    }
+
+    private func deleteMove() async {
+        deleting = true; defer { deleting = false }
+        do { try await MovesStore.deleteMove(store.move.id); confirmDelete = false; dismiss() }
+        catch { store.error = "Не удалось удалить переезд: \(error.localizedDescription)" }
         .alert("Не получилось", isPresented: .init(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("Ок") {}
         } message: { Text(store.error ?? "") }

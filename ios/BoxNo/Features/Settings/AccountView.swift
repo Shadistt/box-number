@@ -93,11 +93,6 @@ struct AccountView: View {
             if store.profile?.photo != nil { Button("Удалить фото", role: .destructive) { Task { await store.deletePhoto(); carouselId = "box" } } }
             Button("Отмена", role: .cancel) {}
         }
-        .confirmationDialog("Отвязать \(unlinkProvider == "apple" ? "Apple" : "Google")?",
-                            isPresented: .init(get: { unlinkProvider != nil }, set: { if !$0 { unlinkProvider = nil } }), titleVisibility: .visible) {
-            Button("Отвязать", role: .destructive) { if let p = unlinkProvider { Task { await unlink(p) } } }
-            Button("Отмена", role: .cancel) {}
-        } message: { Text("Войти этим способом больше не получится, пока не привяжете снова.") }
         .photosPicker(isPresented: $showPicker, selection: $pickerItem, matching: .images)
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
@@ -110,8 +105,20 @@ struct AccountView: View {
             SelfiePicker { img in if let img { Task { await setPhoto(img) } } }.ignoresSafeArea()
         }
         // Нижние карточки поверх этого же экрана (как «Запаковать»), а не системные sheet'ы со стопкой окон.
-        .overlay { if passwordCard { BottomCard(isPresented: $passwordCard) { PasswordCard(close: { withAnimation(.snappy) { passwordCard = false } }) } } }
+        // Карточка пароля сразу высокая: иначе при появлении клавиатуры она подрастала рывком.
+        .overlay { if passwordCard { BottomCard(isPresented: $passwordCard, tall: true) { PasswordCard(close: { withAnimation(.snappy) { passwordCard = false } }) } } }
         .overlay { if twoFACard { BottomCard(isPresented: $twoFACard) { TwoFactorCard(close: { withAnimation(.snappy) { twoFACard = false } }) } } }
+        // Отвязка Apple/Google — тоже нижней карточкой (системный диалог на iOS 26 всплывал пузырём у кнопки).
+        .overlay {
+            if let p = unlinkProvider {
+                BottomCard(isPresented: .init(get: { unlinkProvider != nil }, set: { if !$0 { unlinkProvider = nil } })) {
+                    Text("Отвязать \(p == "apple" ? "Apple" : "Google")?").font(.system(size: 22, weight: .heavy))
+                    Text("Войти этим способом больше не получится, пока не привяжете снова.").font(.subheadline).foregroundStyle(Theme.muted)
+                    Button("Отвязать") { Task { await unlink(p) } }.buttonStyle(PrimaryButtonStyle(fill: .red))
+                    CancelButton { withAnimation(.snappy) { unlinkProvider = nil } }
+                }
+            }
+        }
         .overlay { if busy { ProgressView().padding(20).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
         .task { await store.loadIdentities() }
     }
@@ -156,7 +163,7 @@ struct AccountView: View {
                 Text("Единственный способ").font(.footnote).foregroundStyle(Theme.muted)
             } else {
                 Button(linked ? "Отвязать" : "Привязать") {
-                    if linked { unlinkProvider = provider } else { Task { await link(provider) } }
+                    if linked { withAnimation(.snappy) { unlinkProvider = provider } } else { Task { await link(provider) } }
                 }
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 14).frame(height: 36)
@@ -296,6 +303,9 @@ struct LabeledRow: View {
 
 struct BottomCard<Content: View>: View {
     @Binding var isPresented: Bool
+    /// Высокая карточка (как большие окна приложения): занимает экран до верхнего отступа, содержимое прижато к верху,
+    /// клавиатура её не двигает — поля остаются на месте.
+    var tall = false
     @ViewBuilder let content: Content
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -304,16 +314,20 @@ struct BottomCard<Content: View>: View {
             VStack(alignment: .leading, spacing: 14) {
                 Capsule().fill(Theme.line).frame(width: 36, height: 5).frame(maxWidth: .infinity)
                 content
+                if tall { Spacer(minLength: 0) }
             }
             .padding(20).padding(.bottom, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxHeight: tall ? .infinity : nil, alignment: .top)
             .background {
                 UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(Theme.card)
                     .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
                     .ignoresSafeArea(edges: .bottom)
             }
+            .padding(.top, tall ? 72 : 0)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+        .ignoresSafeArea(tall ? .keyboard : [])
     }
 }
 

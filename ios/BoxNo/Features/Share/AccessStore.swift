@@ -217,4 +217,6 @@ struct PersonAvatar: View {
 extension Int {
     /// «1 человек / 2 человека / 5 человек»
     var people: String { "\(self) " + Plural.form(self, "человек", "человека", "человек") }
+    /// «1 место / 2 места / 5 мест»
+    var placesWord: String { "\(self) " + Plural.form(self, "место", "места", "мест") }
 }

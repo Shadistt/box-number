@@ -169,7 +169,7 @@ struct MoveCard: View {
                     .background(Theme.accent, in: Capsule()).foregroundStyle(Theme.ink)
                 Spacer()
             }
-            Text("\(places) мест · с \(move.createdAt.formatted(.dateTime.day().month(.wide)))")
+            Text("\(places.placesWord) · с \(move.createdAt.formatted(.dateTime.day().month(.wide)))")
                 .font(.subheadline).foregroundStyle(.white.opacity(0.7))
             if !destinations.isEmpty {
                 // Больше трёх направлений не влезает — показываем первые и «+N».
