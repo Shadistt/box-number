@@ -9,6 +9,7 @@ struct SharePlaceView: View {
     @State private var access = AccessStore.shared
     @State private var share: PlaceShare? = nil
     @State private var rows: [AccessRow] = []
+    @State private var viaMove: [AccessRow] = []    // видят через доступ ко всему переезду — показываем серым, без правки
     @State private var password: String? = nil      // показываем только что заданный пароль; старый не восстановить
     @State private var busy = false
     @State private var toast: String? = nil
@@ -88,7 +89,7 @@ struct SharePlaceView: View {
                         }
                     }
 
-                    SectionTitle("Есть доступ · \((rows.count + 1).people)")
+                    SectionTitle("Есть доступ · \((rows.count + viaMove.count + 1).people)")
                     SettingsCard {
                         HStack(spacing: 12) {
                             PersonAvatar(person: access.person(access.me), fallback: "Я")
@@ -115,6 +116,26 @@ struct SharePlaceView: View {
                             }
                             .padding(.horizontal, 16).padding(.vertical, 10)
                         }
+                        // Доступ через переезд: закрыть или сменить роль здесь нельзя — это делается в «Кто видит переезд».
+                        ForEach(viaMove.filter { m in !rows.contains { $0.userId == m.userId } }) { r in
+                            Divider().padding(.leading, 68)
+                            HStack(spacing: 12) {
+                                PersonAvatar(person: access.person(r.userId), fallback: String((r.invitedEmail ?? "?").prefix(1)).uppercased())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(access.name(r)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                                    Text(r.status == "invited" ? "видит через переезд · ждём ответа" : "видит через переезд").font(.footnote).lineLimit(1)
+                                }
+                                Spacer()
+                                Text(r.role == "edit" ? "Редактирует" : "Смотрит").font(.footnote.weight(.semibold))
+                                    .padding(.horizontal, 10).frame(height: 30).background(Theme.fill.opacity(0.6), in: Capsule())
+                            }
+                            .foregroundStyle(Theme.muted)
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                        }
+                    }
+                    if !viaMove.isEmpty {
+                        Text("Серым — те, кто видит всё в переезде. Их доступ настраивается в меню переезда → «Кто видит переезд».")
+                            .font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
                     }
                     Button { addPeople = true } label: { Label("Добавить людей", systemImage: "person.badge.plus") }
                         .buttonStyle(PrimaryButtonStyle())
@@ -147,6 +168,7 @@ struct SharePlaceView: View {
                 await access.loadFamily()
                 share = await access.placeShare(placeId)
                 rows = await access.placeAccess(placeId)
+                viaMove = await access.moveAccess(store.move.id)
             }
         }
     }
