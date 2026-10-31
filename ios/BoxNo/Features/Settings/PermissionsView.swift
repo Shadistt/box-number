@@ -47,7 +47,7 @@ struct PermissionsView: View {
         var color: Color { switch self { case .granted: Color(hex: 0x3C8A4A); case .denied: .red; case .notAsked: Theme.muted; case .notNeeded: Theme.muted } }
     }
     private var cameraStatus: Status { switch camera { case .authorized: .granted; case .notDetermined: .notAsked; default: .denied } }
-    private var contactsStatus: Status { switch contacts { case .authorized, .limited: .granted; case .notDetermined: .notAsked; default: .denied } }
+    private var contactsStatus: Status { switch contacts { case .authorized: .granted; case .notDetermined: .notAsked; default: .denied } }   // .limited (iOS 18) намеренно не используем — таргет iOS 17
     private var notifStatus: Status { switch notifications { case .authorized, .provisional, .ephemeral: .granted; case .notDetermined: .notAsked; default: .denied } }
     private var contactsSub: String { "Выбор из контактов — через системное окно (без разрешения). Полный доступ пригодится для подсказок" }
 
