@@ -10,6 +10,7 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
     private let output = AVCapturePhotoOutput()
     private var configured = false
     private var device: AVCaptureDevice?
+    private var input: AVCaptureDeviceInput?
     private var pending: CheckedContinuation<Data, Error>?
     private var observers: [NSObjectProtocol] = []
 
@@ -42,12 +43,34 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         }
     }
 
-    /// Перезапуск: нужен, когда к уже идущей сессии подключили новый слой превью и он не получил поток.
+    /// Слой превью подключаем к идущей сессии явным соединением (setSessionWithNoConnection + addConnection внутри
+    /// beginConfiguration/commitConfiguration) — по документации так слой получает кадры без перезапуска сессии.
+    /// Перезапуски при каждом открытии (сборки 83–87) давали чёрный экран и до 20 с ожидания.
+    func attach(_ layer: AVCaptureVideoPreviewLayer) {
+        layer.setSessionWithNoConnection(session)
+        queue.async { [self] in
+            if !configured { configure() }
+            guard configured, let port = input?.ports.first(where: { $0.mediaType == .video }) else { return }
+            if layer.connection == nil {
+                let conn = AVCaptureConnection(inputPort: port, videoPreviewLayer: layer)
+                session.beginConfiguration()
+                if session.canAddConnection(conn) { session.addConnection(conn) }
+                session.commitConfiguration()
+            }
+            if !session.isRunning { session.startRunning() }
+        }
+    }
+
+    func detach(_ layer: AVCaptureVideoPreviewLayer) {
+        queue.async { [self] in
+            guard let conn = layer.connection else { return }
+            session.beginConfiguration(); session.removeConnection(conn); session.commitConfiguration()
+        }
+    }
+
     private var lastRestart = Date.distantPast
 
-    /// Не чаще раза в 5 секунд (перезапуск сам по себе даёт рывок превью) — кроме `force`: открытие полного экрана.
-    /// Без force второе открытие камеры в течение 5 секунд оставалось чёрным: новый слой превью по документации
-    /// начинает показывать кадры только после startRunning(), а перезапуск отбрасывался как «слишком частый».
+    /// Только после ошибки сессии или прерывания; не чаще раза в 5 секунд.
     func restart(force: Bool = false) {
         queue.async { [self] in
             guard force || Date().timeIntervalSince(lastRestart) > 5 else { return }
@@ -74,6 +97,7 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         session.addInput(input)
         session.addOutput(output)
         self.device = device
+        self.input = input
         output.maxPhotoQualityPrioritization = .balanced
         session.commitConfiguration()
         configured = true

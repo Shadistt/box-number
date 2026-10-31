@@ -5,10 +5,6 @@ import AVFoundation
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     var gravity: AVLayerVideoGravity = .resizeAspectFill
-    /// Перезапустить сессию сразу после привязки слоя (полный экран). По документации новый слой показывает кадры
-    /// только после startRunning(), поэтому перезапуск должен идти ПОСЛЕ привязки: из .task экрана он уходил раньше,
-    /// чем слой создавался, и экран оставался чёрным (сборки 83–85).
-    var restartOnAttach = false
 
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
@@ -17,19 +13,19 @@ struct CameraPreview: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PreviewView {
         let v = PreviewView()
-        v.previewLayer.session = session
         v.previewLayer.videoGravity = gravity
         v.backgroundColor = .black
-        if restartOnAttach { CameraModel.shared.restart(force: true) }
-        // Страховка: connection создаётся при привязке слоя к сессии; если его нет — перезапускаем сессию.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            if v.previewLayer.connection == nil || !v.previewLayer.isPreviewing { CameraModel.shared.restart(force: true) }
-        }
+        // Явное соединение слоя с идущей сессией — без перезапуска (см. CameraModel.attach).
+        CameraModel.shared.attach(v.previewLayer)
         return v
     }
 
     func updateUIView(_ uiView: PreviewView, context: Context) {
         uiView.previewLayer.videoGravity = gravity
+    }
+
+    static func dismantleUIView(_ uiView: PreviewView, coordinator: ()) {
+        CameraModel.shared.detach(uiView.previewLayer)
     }
 }
 

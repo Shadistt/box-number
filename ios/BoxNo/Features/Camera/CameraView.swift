@@ -21,7 +21,7 @@ struct CameraView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if granted == true {
-                CameraPreview(session: CameraModel.shared.session, restartOnAttach: true).ignoresSafeArea()
+                CameraPreview(session: CameraModel.shared.session).ignoresSafeArea()
                     // Щипок — зум как в системной камере (MagnifyGesture, iOS 17).
                     .gesture(MagnifyGesture()
                         .onChanged { v in
@@ -108,7 +108,7 @@ struct CameraView: View {
         .statusBarHidden()
         .task {
             granted = await CameraModel.requestAccess()
-            // Перезапуск сессии делает сам CameraPreview после привязки слоя (restartOnAttach); здесь только зум.
+            // Слой превью сам подключается к сессии (CameraModel.attach); здесь только зум.
             if granted == true { zoom = 1; zoomAtPinchStart = 1; CameraModel.shared.setZoom(1) }
         }
         .animation(.snappy, value: toast)
