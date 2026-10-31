@@ -14,7 +14,6 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleDevelopmentRegion</key><string>ru</string>
   <key>UILaunchScreen</key><dict/>
-  <key>UIUserInterfaceStyle</key><string>Light</string>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>NSCameraUsageDescription</key><string>Камера нужна, чтобы снимать вещи в коробках и номер на коробке.</string>
   <key>NSPhotoLibraryUsageDescription</key><string>Чтобы выбрать фото профиля из галереи.</string>

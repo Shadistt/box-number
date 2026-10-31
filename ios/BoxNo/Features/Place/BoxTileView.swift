@@ -14,7 +14,7 @@ struct BoxTileView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.18)
-                .fill(packed ? Theme.ink : Color(hex: 0xE8E6E0))
+                .fill(packed ? Theme.dark : Theme.tile)
             if let photo {
                 // Фото самого места; номер — бейджем в углу, чтобы оставался виден.
                 Image(uiImage: photo).resizable().scaledToFill()
@@ -22,8 +22,8 @@ struct BoxTileView: View {
                     .overlay(alignment: .topLeading) {
                         Text(place.number).font(.system(size: size * 0.16, weight: .heavy, design: .rounded))
                             .padding(.horizontal, 7).padding(.vertical, 3)
-                            .background(packed ? Theme.ink : .white, in: Capsule())
-                            .foregroundStyle(packed ? .white : Theme.ink).padding(6)
+                            .background(packed ? Theme.dark : Theme.card, in: Capsule())
+                            .foregroundStyle(packed ? Theme.onInk : Theme.ink).padding(6)
                     }
             } else if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
         }
@@ -33,8 +33,8 @@ struct BoxTileView: View {
                 // Как иконка селфи в настройках: подсказка, что сюда можно положить фото коробки.
                 Image(systemName: "camera.fill").font(.system(size: size * 0.12, weight: .semibold))
                     .frame(width: size * 0.26, height: size * 0.26)
-                    .background(packed ? Color.white : Theme.ink, in: Circle())
-                    .foregroundStyle(packed ? Theme.ink : .white)
+                    .background(packed ? Theme.card : Theme.ink, in: Circle())
+                    .foregroundStyle(packed ? Theme.dark : Theme.onInk)
                     .offset(x: 4, y: 4)
             }
         }
@@ -86,7 +86,7 @@ struct BoxTileView: View {
             Image(systemName: place.kind.symbol).font(.system(size: size * 0.26, weight: .medium))
             Text(place.number).font(.system(size: size * 0.3, weight: .heavy, design: .rounded)).minimumScaleFactor(0.5).lineLimit(1)
         }
-        .foregroundStyle(packed ? .white : Theme.ink)
+        .foregroundStyle(packed ? Theme.onInk : Theme.ink)
         .padding(.horizontal, 8)
     }
 }

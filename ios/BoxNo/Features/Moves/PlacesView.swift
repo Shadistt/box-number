@@ -193,7 +193,7 @@ struct PlaceTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 16).fill(place.status == .packed ? Theme.ink : Color(hex: 0xE8E6E0))
+                RoundedRectangle(cornerRadius: 16).fill(place.status == .packed ? Theme.dark : Theme.tile)
                     .aspectRatio(1, contentMode: .fit)
                 if let photo {
                     Image(uiImage: photo).resizable().scaledToFill()
@@ -201,7 +201,7 @@ struct PlaceTile: View {
                         .overlay(alignment: .bottomLeading) {
                             Text(place.number).font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(.white, in: Capsule()).foregroundStyle(Theme.ink).padding(8)
+                                .background(Theme.card, in: Capsule()).foregroundStyle(Theme.ink).padding(8)
                         }
                 } else if place.kind == .box {
                     Box3DView(number: place.number, openness: place.status == .packed ? 0 : 1, size: 120)
@@ -220,13 +220,13 @@ struct PlaceTile: View {
                             .background(Theme.accent, in: Circle()).foregroundStyle(Theme.ink)
                     } else if place.status == .done {
                         Image(systemName: "checkmark").font(.caption.weight(.bold)).padding(6)
-                            .background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                            .background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
                     }
                     Spacer()
                     if let destination {
                         Text(destination).font(.caption2.weight(.bold)).lineLimit(1)
                             .padding(.horizontal, 8).padding(.vertical, 4)
-                            .background(.white, in: Capsule()).foregroundStyle(Theme.ink)
+                            .background(Theme.card, in: Capsule()).foregroundStyle(Theme.ink)
                             .frame(maxWidth: 110, alignment: .trailing)
                     } else if place.status == .open {
                         // Направление не выбрано — отдельная метка, чтобы было видно, что место «ничьё».
@@ -261,7 +261,7 @@ struct Chip: View {
             Text(title).font(.system(size: 14, weight: .semibold))
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(selected ? Theme.ink : Theme.card, in: Capsule())
-                .foregroundStyle(selected ? .white : Theme.ink)
+                .foregroundStyle(selected ? Theme.onInk : Theme.ink)
         }.buttonStyle(.plain)
     }
 }
@@ -293,12 +293,15 @@ struct FAB: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: "plus").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.ink)
+                Image(systemName: "plus").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.dark)
                     .frame(width: 36, height: 36).background(Theme.accent, in: Circle())
                 Text(title).font(.system(size: 17, weight: .semibold))
             }
             .padding(.leading, 12).padding(.trailing, 26).frame(height: 58)
-            .background(Theme.ink, in: Capsule()).foregroundStyle(.white)
+            .background(Theme.ink, in: Capsule()).foregroundStyle(Theme.onInk)
+            // Контур цвета фона экрана: кнопка не сливается с тёмными карточками (паттерн FAB с «кольцом»);
+            // в тёмной теме ink светлый, контур тёмный — работает так же.
+            .overlay(Capsule().stroke(Theme.bg, lineWidth: 3))
             .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
         }
     }

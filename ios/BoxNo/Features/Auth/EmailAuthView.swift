@@ -92,7 +92,7 @@ struct LabeledField<Content: View>: View {
             Text(label).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             content
                 .padding(.horizontal, 16).frame(height: 54)
-                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
         }
     }

@@ -61,7 +61,7 @@ struct ChangeEmailView: View {
                 case .done:
                     VStack(spacing: 14) {
                         Image(systemName: "checkmark").font(.system(size: 30, weight: .bold))
-                            .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                            .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
                         Text("Email изменён").font(.system(size: 26, weight: .heavy))
                         Text("Теперь входите с \(email). На старый адрес отправили уведомление.")
                             .multilineTextAlignment(.center).foregroundStyle(Theme.muted)

@@ -30,7 +30,7 @@ struct TypePickerView: View {
                             }
                             .padding(16).frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
                             .background(selected == kind ? Theme.ink : Theme.card, in: RoundedRectangle(cornerRadius: 20))
-                            .foregroundStyle(selected == kind ? .white : Theme.ink)
+                            .foregroundStyle(selected == kind ? Theme.onInk : Theme.ink)
                         }
                         .buttonStyle(.plain)
                     }

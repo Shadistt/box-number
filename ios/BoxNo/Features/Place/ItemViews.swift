@@ -16,7 +16,7 @@ struct ItemThumb: View {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
                     ZStack {
-                        Color(hex: 0xE8E6E0)
+                        Theme.tile
                         Image(systemName: "photo").foregroundStyle(Theme.muted)
                     }
                 }
@@ -42,7 +42,7 @@ struct ItemCell: View {
                     .opacity(item.isTaken ? 0.45 : 1)
                 if status == .open {
                     TwoStepDelete(onDelete: onMinus) { armed in
-                        Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                        Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.onInk)
                             .frame(width: 26, height: 26).background(armed ? Color.red : .black.opacity(0.55), in: Circle())
                     }.padding(6)
                 } else if status == .unpacking {
@@ -122,13 +122,13 @@ struct ItemCardView: View {
                                 HStack(spacing: 8) {
                                     Button { retake = true } label: {
                                         Label("Переснять", systemImage: "camera").font(.system(size: 13, weight: .semibold))
-                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(Theme.onInk)
                                     }
                                     Button {
                                         Task { if let img = await PhotoStore.image(for: item, thumb: false) { editPhoto = EditablePhoto(image: img) } }
                                     } label: {
                                         Label("Обрезать · повернуть", systemImage: "crop.rotate").font(.system(size: 13, weight: .semibold))
-                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(Theme.onInk)
                                     }
                                 }
                                 .padding(10)
@@ -263,7 +263,7 @@ struct MoveItemView: View {
                     busy = true
                     Task { try? await store.updateItem(item.id, placeId: selected); busy = false; dismiss(); onDone() }
                 } label: {
-                    if busy { ProgressView().tint(.white) }
+                    if busy { ProgressView().tint(Theme.onInk) }
                     else { Text(target.map { "Переложить в № \($0.number)" } ?? "Переложить") }
                 }
                 .buttonStyle(PrimaryButtonStyle()).disabled(!changed || busy).opacity(changed ? 1 : 0.5)

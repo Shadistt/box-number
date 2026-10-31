@@ -22,8 +22,8 @@ struct StatusBarView: View {
     private var done: Bool { place.status == .done }
     private var destName: String { destinations.first { $0.id == place.destinationId }?.name ?? "" }
 
-    private var bg: Color { packed ? Theme.ink : .white }
-    private var ink: Color { packed ? .white : Theme.ink }
+    private var bg: Color { packed ? Theme.dark : Theme.card }
+    private var ink: Color { packed ? Theme.onInk : Theme.ink }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -53,7 +53,7 @@ struct StatusBarView: View {
                             .font(.system(size: 18, weight: .bold))
                             .frame(width: 44, height: 44)
                             .background(packed || allTaken ? Theme.accent : Theme.ink, in: Circle())
-                            .foregroundStyle(packed || allTaken ? Theme.ink : .white)
+                            .foregroundStyle(packed || allTaken ? Theme.dark : .white)
                     }
                     .accessibilityLabel(done ? "Вернуть в распаковку" : (allTaken ? "Коробка разобрана" : (packed ? "Распаковать" : "Запаковать")))
                     .transition(.scale.combined(with: .opacity))
@@ -84,7 +84,7 @@ struct StatusBarView: View {
             }
         }
         .padding(14)
-        .background(isOpen && !packed ? .white : bg, in: RoundedRectangle(cornerRadius: 18))
+        .background(isOpen && !packed ? Theme.card : bg, in: RoundedRectangle(cornerRadius: 18))
         .overlay {
             if needDest { RoundedRectangle(cornerRadius: 18).strokeBorder(Theme.accent, lineWidth: 1.5) }
         }

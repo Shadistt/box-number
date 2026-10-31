@@ -46,7 +46,7 @@ struct DestinationPickerView: View {
                                     .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                                 Button(action: add) {
                                     Image(systemName: "plus").font(.system(size: 18, weight: .bold))
-                                        .frame(width: 50, height: 50).background(Theme.ink, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(.white)
+                                        .frame(width: 50, height: 50).background(Theme.ink, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(Theme.onInk)
                                 }
                                 .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
                                 .opacity(newName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1)

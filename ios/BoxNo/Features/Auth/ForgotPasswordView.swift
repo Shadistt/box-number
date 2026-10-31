@@ -13,7 +13,7 @@ struct ForgotPasswordView: View {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "envelope").font(.system(size: 30, weight: .bold))
-                        .frame(width: 76, height: 76).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                        .frame(width: 76, height: 76).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
                     Text("Проверьте почту").font(.system(size: 28, weight: .heavy))
                     Text("Отправили ссылку на \(email). Она действует 30 минут.").multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                 }.frame(maxWidth: .infinity)

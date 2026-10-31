@@ -16,7 +16,7 @@ struct ConfirmEmailView: View {
                 .font(.system(size: 30, weight: .bold))
                 .frame(width: 72, height: 72)
                 .background(done ? Theme.ink : Theme.accent, in: Circle())
-                .foregroundStyle(done ? .white : Theme.ink)
+                .foregroundStyle(done ? Theme.onInk : Theme.ink)
             Text(done ? "Email подтверждён" : "Подтвердите email").font(.system(size: 28, weight: .heavy))
             Text(done ? "Аккаунт привязан к \(email). Открываем главный экран."
                       : "Мы отправили код на \(email). Откройте письмо — iPhone подставит код сам.")
@@ -28,7 +28,7 @@ struct ConfirmEmailView: View {
                         let ch = i < code.count ? String(code[code.index(code.startIndex, offsetBy: i)]) : ""
                         Text(ch).font(.system(size: 26, weight: .bold))
                             .frame(width: 48, height: 60)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                            .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                             .overlay(RoundedRectangle(cornerRadius: 14).stroke(i == code.count ? Theme.accent : .clear, lineWidth: 2))
                     }
                 }

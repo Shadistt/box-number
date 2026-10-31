@@ -41,7 +41,7 @@ struct AuthView: View {
                         Text("Продолжить с Google")
                     }
                 }
-                    .buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.ink))
+                    .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
                     .overlay(RoundedRectangle(cornerRadius: Theme.radius).stroke(Theme.line))
                     .disabled(busy)
 

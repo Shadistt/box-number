@@ -4,12 +4,13 @@ import GoogleSignIn
 @main
 struct BoxNoApp: App {
     @State private var session = SessionStore()
+    @AppStorage(AppTheme.key) private var theme: String = AppTheme.light.rawValue   // по умолчанию светлая, пока тёмную не отсмотрели
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(session)
-                .preferredColorScheme(.light)
+                .preferredColorScheme((AppTheme(rawValue: theme) ?? .system).scheme)   // nil = как в системе
                 .tint(Theme.ink)
                 .task { session.start() }
                 .onOpenURL { url in

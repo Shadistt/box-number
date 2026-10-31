@@ -25,7 +25,7 @@ struct NewMoveView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Куда переезжаете?").font(.system(size: 30, weight: .heavy)).foregroundStyle(Theme.ink)
                 Text("Коробки этого переезда будут нумероваться с 1. Название можно поменять потом.")
-                    .font(.system(size: 16)).foregroundStyle(Color(hex: 0x4F5157)).padding(.top, 6)
+                    .font(.system(size: 16)).foregroundStyle(Theme.muted).padding(.top, 6)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 8) {
@@ -56,7 +56,7 @@ struct NewMoveView: View {
                 if let error { Text(error).font(.footnote).foregroundStyle(.red).padding(.bottom, 8) }
                 Button(cta) { Task { await create() } }
                     .buttonStyle(PrimaryButtonStyle(fill: filled.isEmpty ? Color(hex: 0xD5D3CC) : Theme.ink,
-                                                    ink: filled.isEmpty ? Color(hex: 0x6B6D73) : .white))
+                                                    ink: filled.isEmpty ? Theme.muted : Theme.onInk))
                     .disabled(filled.isEmpty || busy)
             }
             .padding(.horizontal, 20).padding(.bottom, 12).background(Theme.bg)
@@ -75,7 +75,7 @@ struct NewMoveView: View {
                               set: { v in if let k = dests.firstIndex(where: { $0.id == d.id }) { dests[k].text = v } })
         return HStack(spacing: 12) {
             Text(i == 0 ? "Куда" : "Куда \(i + 1)").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: 0x4F5157)).frame(width: 64, alignment: .leading)   // как у «Откуда» — текст в одну линию
+                .foregroundStyle(Theme.muted).frame(width: 64, alignment: .leading)   // как у «Откуда» — текст в одну линию
             TextField("Город и/или адрес", text: binding)
                 .font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
                 .autocorrectionDisabled().textInputAutocapitalization(.words)
@@ -91,7 +91,7 @@ struct NewMoveView: View {
             }
         }
         .padding(.leading, 16).padding(.trailing, 8).frame(height: 58)
-        .background(.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         .scaleEffect(lifted ? 1.03 : 1)
         .shadow(color: .black.opacity(lifted ? 0.18 : 0), radius: lifted ? 14 : 0, y: lifted ? 6 : 0)
         .offset(y: lifted ? dragOffset : shift(i))
@@ -139,12 +139,12 @@ struct NewMoveView: View {
 
     private func field(_ label: String, text: Binding<String>) -> some View {
         HStack(spacing: 12) {
-            Text(label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(hex: 0x4F5157)).frame(width: 64, alignment: .leading)
+            Text(label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 64, alignment: .leading)
             TextField("Город и/или адрес", text: text).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
                 .autocorrectionDisabled().textInputAutocapitalization(.words)
         }
         .padding(.horizontal, 16).frame(height: 58)
-        .background(.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func create() async {

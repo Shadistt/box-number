@@ -158,7 +158,7 @@ struct MoveCard: View {
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 18))
+        .background(Theme.dark, in: RoundedRectangle(cornerRadius: 18))
         .foregroundStyle(.white)
     }
 }

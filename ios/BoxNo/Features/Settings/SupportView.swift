@@ -28,7 +28,7 @@ struct SupportView: View {
                 if sent {
                     VStack(spacing: 14) {
                         Image(systemName: "checkmark").font(.system(size: 30, weight: .bold))
-                            .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                            .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
                         Text("Отправили").font(.system(size: 26, weight: .heavy))
                         Text("Ответим на \(store.profile?.email ?? "").")
                             .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
@@ -59,7 +59,7 @@ struct SupportView: View {
                                         .overlay(alignment: .topTrailing) {
                                             Button { shots.remove(at: i) } label: {
                                                 Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                                                    .frame(width: 22, height: 22).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                                                    .frame(width: 22, height: 22).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
                                             }.offset(x: 6, y: -6)
                                         }
                                         .accessibilityLabel("Скриншот \(i + 1)")
@@ -92,7 +92,7 @@ struct SupportView: View {
 
                     if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                     Button { Task { await send() } } label: {
-                        if busy { ProgressView().tint(.white) } else { Text("Отправить") }
+                        if busy { ProgressView().tint(Theme.onInk) } else { Text("Отправить") }
                     }
                     .buttonStyle(PrimaryButtonStyle()).disabled(missing != nil || busy).opacity(missing == nil ? 1 : 0.5)
                     if let missing { Text(missing).font(.footnote).foregroundStyle(Theme.muted).frame(maxWidth: .infinity) }

@@ -145,7 +145,7 @@ struct AccountView: View {
         let last = linked && !store.canUnlinkProvider
         return HStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
-                .frame(width: 40, height: 40).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                .frame(width: 40, height: 40).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 17, weight: .semibold))
                 Text(linked ? (store.identityEmail(provider) ?? "Привязан") : "Не привязан").font(.footnote).foregroundStyle(Theme.muted)
@@ -160,7 +160,7 @@ struct AccountView: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 14).frame(height: 36)
-                .background(Color(hex: 0xE4E2DC), in: Capsule())
+                .background(Theme.fill, in: Capsule())
                 .foregroundStyle(Theme.ink)
             }
         }
@@ -212,8 +212,8 @@ struct AvatarCarousel: View {
                             if let img = store.avatarImage, store.profile?.photo != nil {
                                 Image(uiImage: img).resizable().scaledToFill()
                             } else {
-                                Color(hex: 0xE4E2DC)
-                                Image(systemName: "camera.fill").font(.system(size: 30, weight: .semibold)).foregroundStyle(Color(hex: 0x4F5157))
+                                Theme.fill
+                                Image(systemName: "camera.fill").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.muted)
                             }
                         }
                     }
@@ -222,7 +222,7 @@ struct AvatarCarousel: View {
                         item(p.id) {
                             ZStack {
                                 p.color
-                                Image(systemName: p.symbol).font(.system(size: 34, weight: .semibold)).foregroundStyle(.white)
+                                Image(systemName: p.symbol).font(.system(size: 34, weight: .semibold)).foregroundStyle(Theme.onInk)
                             }
                         }
                         .onTapGesture { withAnimation(.snappy) { selection = p.id } }
@@ -307,7 +307,7 @@ struct BottomCard<Content: View>: View {
             .padding(20).padding(.bottom, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(.white)
+                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(Theme.card)
                     .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
                     .ignoresSafeArea(edges: .bottom)
             }

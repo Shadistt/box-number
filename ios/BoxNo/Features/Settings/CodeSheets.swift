@@ -166,7 +166,7 @@ struct TwoFactorCard: View {
         if let error { Text(error).font(.footnote).foregroundStyle(.red) }
         if !sent {
             Button { Task { await send() } } label: {
-                if busy { ProgressView().tint(.white) } else { Text("Отправить код") }
+                if busy { ProgressView().tint(Theme.onInk) } else { Text("Отправить код") }
             }
             .buttonStyle(PrimaryButtonStyle()).disabled(busy)
         }

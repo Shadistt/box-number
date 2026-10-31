@@ -145,7 +145,7 @@ struct PlaceView: View {
         .overlay(alignment: .bottom) {
             if let toast {
                 HStack(spacing: 14) {
-                    Text(toast.text).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    Text(toast.text).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.onInk)
                     if toast.undoId != nil {
                         Button("Отменить") {
                             let action = undoAction; undoAction = nil; self.toast = nil
@@ -183,7 +183,7 @@ struct PlaceView: View {
                             ForEach(metaChips(place), id: \.self) { t in
                                 Text(t).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink)
                                     .padding(.horizontal, 9).frame(height: 24)
-                                    .background(.white, in: Capsule())
+                                    .background(Theme.card, in: Capsule())
                             }
                         }
                     }
@@ -255,7 +255,7 @@ struct PlaceView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Запаковать место № \(p.number)?").font(.system(size: 22, weight: .heavy))
                 Text("Всё, что происходит дальше — запаковали, открыли, достали вещь, — остаётся в истории с датой.")
-                    .font(.system(size: 16)).foregroundStyle(Color(hex: 0x4F5157)).lineSpacing(3)
+                    .font(.system(size: 16)).foregroundStyle(Theme.muted).lineSpacing(3)
                     .padding(.bottom, 8)
                 Button {
                     withAnimation(.snappy) { showPackCard = false }
@@ -269,7 +269,7 @@ struct PlaceView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 // Фон уходит под индикатор «домой»: иначе снизу остаётся серая полоса.
-                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(.white)
+                UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22).fill(Theme.card)
                     .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
                     .ignoresSafeArea(edges: .bottom)
             }
@@ -406,11 +406,11 @@ struct PlacePhotoViewer: View {
             VStack {
                 HStack {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                        Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.onInk)
                             .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
                     }
                     Spacer()
-                    Text("\(place.kind.numberLabel) № \(place.number)").font(.headline).foregroundStyle(.white)
+                    Text("\(place.kind.numberLabel) № \(place.number)").font(.headline).foregroundStyle(Theme.onInk)
                     Spacer()
                     Color.clear.frame(width: 44, height: 44)
                 }
@@ -419,9 +419,9 @@ struct PlacePhotoViewer: View {
                 if editable {
                     HStack(spacing: 12) {
                         Button(action: onReplace) { Label("Заменить", systemImage: "camera") }
-                            .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .white))
+                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card.opacity(0.15), ink: Theme.onInk))
                         Button(action: onDelete) { Label("Удалить", systemImage: "trash") }
-                            .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .red))
+                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card.opacity(0.15), ink: .red))
                     }
                     .padding(16)
                 }

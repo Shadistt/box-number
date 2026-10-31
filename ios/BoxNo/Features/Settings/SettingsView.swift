@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var store = ProfileStore.shared
     @State private var showDelete = false
     @State private var confirmSignOut = false
+    @AppStorage(AppTheme.key) private var theme: String = AppTheme.light.rawValue   // по умолчанию светлая, пока тёмную не отсмотрели
 
     var body: some View {
         NavigationStack {
@@ -50,6 +51,8 @@ struct SettingsView: View {
                         NavigationLink { FamilyPlaceholderView() } label: { Row("Моя семья", value: "скоро") }
                         Divider().padding(.leading, 16)
                         NavigationLink { LanguageView() } label: { Row("Язык", value: Language.current(store.profile?.locale).native) }
+                        Divider().padding(.leading, 16)
+                        NavigationLink { ThemeView() } label: { Row("Тема", value: (AppTheme(rawValue: theme) ?? .system).title) }
                     }
                     SettingsCard {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }
@@ -140,7 +143,7 @@ struct CircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName).font(.system(size: 15, weight: .bold))
-                .frame(width: 40, height: 40).background(.white, in: Circle())
+                .frame(width: 40, height: 40).background(Theme.card, in: Circle())
         }
         .foregroundStyle(Theme.ink)
     }

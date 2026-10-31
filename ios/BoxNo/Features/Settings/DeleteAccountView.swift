@@ -48,7 +48,7 @@ struct DeleteAccountView: View {
             }
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             Button { confirm = true } label: {
-                if busy { ProgressView().tint(.white) } else { Text("Удалить навсегда") }
+                if busy { ProgressView().tint(Theme.onInk) } else { Text("Удалить навсегда") }
             }
             .buttonStyle(PrimaryButtonStyle(fill: .red)).disabled(!agreed || busy).opacity(agreed ? 1 : 0.5)
         }
@@ -58,7 +58,7 @@ struct DeleteAccountView: View {
     private var deletedBody: some View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark").font(.system(size: 30, weight: .bold))
-                .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(.white)
+                .frame(width: 72, height: 72).background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
             Text("Аккаунт удалён").font(.system(size: 26, weight: .heavy))
             Text("Коробки, вещи и фото удалены с телефона и из облака. Люди, с которыми вы делились коробками, больше их не видят.")
                 .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
