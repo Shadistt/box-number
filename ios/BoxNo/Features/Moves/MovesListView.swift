@@ -4,6 +4,8 @@ struct MovesListView: View {
     let startEmpty: Bool
     @State private var store = MovesStore()
     @State private var showNew = false
+    @State private var created: Move? = nil
+    @Environment(\.scenePhase) private var scenePhase
     @State private var openMove: Move? = nil
     @State private var openShared: Place? = nil
     // Зажать карточку → поднимается, тянем вверх/вниз, соседи раздвигаются (тот же паттерн, что направления).
@@ -74,8 +76,13 @@ struct MovesListView: View {
         .navigationDestination(item: $openShared) { p in PlaceView(store: PlacesStore(move: .placeholder(id: p.moveId), destinations: []), placeId: p.id) }
         .task { await store.load() }
         .onAppear { Task { await store.load() } }
+        // Вернулись в приложение — обновить список: доступ к чужому переезду мог появиться, пока нас не было.
+        .onChange(of: scenePhase) { _, p in if p == .active { Task { await store.load() } } }
         .refreshable { await store.load() }
-        .sheet(isPresented: $showNew) { NewMoveView(store: store) }
+        // Новый переезд открываем сразу (после закрытия листа — иначе push и dismiss спорят).
+        .sheet(isPresented: $showNew, onDismiss: { if let m = created { created = nil; openMove = m } }) {
+            NewMoveView(store: store, onCreated: { created = $0 })
+        }
     }
 
     private func height(_ m: Move) -> CGFloat { frames[m.id]?.height ?? 100 }

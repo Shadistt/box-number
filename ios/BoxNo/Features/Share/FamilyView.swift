@@ -98,7 +98,7 @@ struct InviteFamilyView: View {
     @State private var error: String? = nil
     @FocusState private var focused: Bool
 
-    private var valid: Bool { let e = email.trimmingCharacters(in: .whitespaces); return e.contains("@") && e.contains(".") }
+    private var valid: Bool { email.trimmingCharacters(in: .whitespaces).isValidEmail }
 
     var body: some View {
         NavigationStack {
@@ -149,8 +149,8 @@ struct InviteFamilyView: View {
             }
             .background(Theme.bg).scrollDismissesKeyboard(.interactively)
             .navigationTitle("Пригласить в семью").navigationBarTitleDisplayMode(.inline)
-            // Крестик, как в Настройках: системная круглая кнопка стоит ровно по линии заголовка, текстовая «пилюля» — нет.
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Image(systemName: "xmark").font(.system(size: 15, weight: .bold)) } } }
+            // «Закрыть» текстом, как на «Кто видит переезд»: круглая кнопка-иконка на iOS 26 стоит ниже линии заголовка.
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { dismiss() } } }
             .sheet(isPresented: $contacts) { ContactsPicker { es in for e in es where !emails.contains(e.lowercased()) { emails.append(e.lowercased()) } }.ignoresSafeArea() }
             .task { focused = true }
         }

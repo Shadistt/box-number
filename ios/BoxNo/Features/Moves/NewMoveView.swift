@@ -3,6 +3,7 @@ import SwiftUI
 /// Новый переезд (ТЗ §4): Откуда + Куда 1…5, перетаскивание направлений за ≡, минус в ряду, максимум 5.
 struct NewMoveView: View {
     let store: MovesStore
+    var onCreated: ((Move) -> Void)? = nil      // главный открывает новый переезд сразу после создания
     @Environment(\.dismiss) private var dismiss
     @State private var from = ""
     @State private var dests: [Dest] = [Dest()]
@@ -154,7 +155,7 @@ struct NewMoveView: View {
 
     private func create() async {
         busy = true; defer { busy = false }
-        do { _ = try await store.createMove(from: from.trimmingCharacters(in: .whitespaces), to: filled); dismiss() }
+        do { let m = try await store.createMove(from: from.trimmingCharacters(in: .whitespaces), to: filled); onCreated?(m); dismiss() }
         catch { self.error = error.localizedDescription }
     }
 }

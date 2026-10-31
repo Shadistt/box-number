@@ -214,6 +214,13 @@ struct PersonAvatar: View {
     }
 }
 
+extension String {
+    /// Похоже на email: имя@домен.зона, без пробелов (а не просто «есть @ и точка»).
+    var isValidEmail: Bool {
+        range(of: #"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$"#, options: .regularExpression) != nil
+    }
+}
+
 extension Int {
     /// «1 человек / 2 человека / 5 человек»
     var people: String { "\(self) " + Plural.form(self, "человек", "человека", "человек") }

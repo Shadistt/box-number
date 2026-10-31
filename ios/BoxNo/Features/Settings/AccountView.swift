@@ -102,7 +102,7 @@ struct AccountView: View {
             }
         }
         .fullScreenCover(isPresented: $selfie) {
-            SelfiePicker { img in if let img { Task { await setPhoto(img) } } }.ignoresSafeArea()
+            SelfieCaptureView { img in Task { await setPhoto(img) } }
         }
         // Нижние карточки поверх этого же экрана (как «Запаковать»), а не системные sheet'ы со стопкой окон.
         // Карточка пароля сразу высокая: иначе при появлении клавиатуры она подрастала рывком.
@@ -324,41 +324,15 @@ struct BottomCard<Content: View>: View {
                     .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
                     .ignoresSafeArea(edges: .bottom)
             }
-            .padding(.top, tall ? 72 : 0)
+            .padding(.top, tall ? Self.statusBarHeight + 10 : 0)    // как у больших листов: под шапкой экрана, над — только статус-бар
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+        .ignoresSafeArea(.container, edges: tall ? .top : [])     // накрывает и навигационную шапку (кнопка «назад» не торчит)
         .ignoresSafeArea(tall ? .keyboard : [])
     }
-}
 
-// MARK: - Селфи (фронтальная камера, обрезка в квадрат, зеркально — как в превью)
-
-struct SelfiePicker: UIViewControllerRepresentable {
-    let onPick: (UIImage?) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let p = UIImagePickerController()
-        p.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
-        if p.sourceType == .camera, UIImagePickerController.isCameraDeviceAvailable(.front) { p.cameraDevice = .front }
-        p.allowsEditing = true
-        p.delegate = context.coordinator
-        return p
-    }
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: SelfiePicker
-        init(_ parent: SelfiePicker) { self.parent = parent }
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            var img = (info[.editedImage] ?? info[.originalImage]) as? UIImage
-            // Фронтальная камера отдаёт незеркальный кадр, а в превью человек видел себя как в зеркале —
-            // отзеркаливаем, чтобы фото выглядело привычно.
-            if picker.sourceType == .camera, picker.cameraDevice == .front, let i = img { img = i.withHorizontallyFlippedOrientation() }
-            parent.onPick(img); parent.dismiss()
-        }
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.onPick(nil); parent.dismiss() }
+    private static var statusBarHeight: CGFloat {
+        UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first?.safeAreaInsets.top ?? 59
     }
 }
 
