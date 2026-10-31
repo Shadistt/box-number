@@ -43,30 +43,18 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         }
     }
 
-    /// Слой превью подключаем к идущей сессии явным соединением (setSessionWithNoConnection + addConnection внутри
-    /// beginConfiguration/commitConfiguration) — по документации так слой получает кадры без перезапуска сессии.
-    /// Перезапуски при каждом открытии (сборки 83–87) давали чёрный экран и до 20 с ожидания.
-    func attach(_ layer: AVCaptureVideoPreviewLayer) {
-        layer.setSessionWithNoConnection(session)
-        queue.async { [self] in
-            if !configured { configure() }
-            guard configured, let port = input?.ports.first(where: { $0.mediaType == .video }) else { return }
-            if layer.connection == nil {
-                let conn = AVCaptureConnection(inputPort: port, videoPreviewLayer: layer)
-                session.beginConfiguration()
-                if session.canAddConnection(conn) { session.addConnection(conn) }
-                session.commitConfiguration()
-            }
-            if !session.isRunning { session.startRunning() }
-        }
+    /// Единственный слой превью на приложение и кто его сейчас показывает (см. CameraPreview).
+    static let previewReleased = Notification.Name("boxno.previewReleased")
+    private var _previewView: CameraPreview.PreviewView?
+    @MainActor var previewView: CameraPreview.PreviewView {
+        if let v = _previewView { return v }
+        let v = CameraPreview.PreviewView()
+        v.previewLayer.session = session        // соединение создаётся само; сессия стартует в start()
+        v.backgroundColor = .black
+        _previewView = v
+        return v
     }
-
-    func detach(_ layer: AVCaptureVideoPreviewLayer) {
-        queue.async { [self] in
-            guard let conn = layer.connection else { return }
-            session.beginConfiguration(); session.removeConnection(conn); session.commitConfiguration()
-        }
-    }
+    weak var previewOwner: CameraPreview.Container?
 
     private var lastRestart = Date.distantPast
 
