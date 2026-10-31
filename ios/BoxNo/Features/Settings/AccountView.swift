@@ -229,13 +229,14 @@ struct AvatarCarousel: View {
                         .accessibilityLabel(p.title)
                     }
                 }
+                .padding(.vertical, 10)
                 .scrollTargetLayout()
             }
             .safeAreaPadding(.horizontal, side)
             .scrollTargetBehavior(.viewAligned)   // viewAligned(anchor:) — только iOS 26; центровку даёт safeAreaPadding по бокам
             .scrollPosition(id: $selection, anchor: .center)
         }
-        .frame(height: big + 8)
+        .frame(height: big + 20)   // запас под обводку и тень — иначе круг обрезался сверху и снизу
     }
 
     /// Масштаб по расстоянию от центра экрана: в центре 1, у краёв 0.6.

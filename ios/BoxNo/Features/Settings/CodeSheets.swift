@@ -76,18 +76,20 @@ struct PasswordCard: View {
                  : "После этого войти можно будет по email и паролю, а Apple или Google — отвязать, если захотите.")
                 .font(.subheadline).foregroundStyle(Theme.muted)
             if hasPassword {
-                SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle()
+                SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle().colorScheme(.light)
             }
-            HStack {
+            // Поля пароля всегда в светлой схеме: автозаполнение iOS красит поле жёлтым, и в тёмной теме светлый текст пропадал.
+            HStack(spacing: 8) {
                 Group {
                     if showNew { TextField("Новый пароль, не короче 8 символов", text: $new) }
                     else { SecureField("Новый пароль, не короче 8 символов", text: $new) }
                 }
                 .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never)
-                Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted)
+                .fieldStyle().colorScheme(.light)
+                Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }
+                    .foregroundStyle(Theme.muted).frame(width: 36, height: 52)
             }
-            .fieldStyle()
-            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle()
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle().colorScheme(.light)
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
             if !hasPassword {
                 Text("Подтвердим кодом на \(email) — iPhone подставит его сам.").font(.footnote).foregroundStyle(Theme.muted)

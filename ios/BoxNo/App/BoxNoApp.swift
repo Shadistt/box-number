@@ -11,6 +11,12 @@ struct BoxNoApp: App {
             RootView()
                 .environment(session)
                 .preferredColorScheme((AppTheme(rawValue: theme) ?? .system).scheme)   // nil = как в системе
+                // Открытые sheet'ы (Настройки → Тема) — отдельные презентации и preferredColorScheme не наследуют:
+                // переключаем стиль окна, тогда меняется всё сразу.
+                .onChange(of: theme, initial: true) { _, t in
+                    let style: UIUserInterfaceStyle = switch AppTheme(rawValue: t) ?? .system { case .light: .light; case .dark: .dark; case .system: .unspecified }
+                    for s in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) { for w in s.windows { w.overrideUserInterfaceStyle = style } }
+                }
                 .tint(Theme.ink)
                 .task { session.start() }
                 .onOpenURL { url in

@@ -33,7 +33,8 @@ struct MovesListView: View {
                                 .zIndex(lifted ? 1 : 0)
                                 .contentShape(Rectangle())
                                 .onTapGesture { if dragging == nil { openMove = m } }
-                                .gesture(reorderGesture(m.id, index: i))
+                                // simultaneousGesture: иначе жест перехватывал прокрутку списка
+                                .simultaneousGesture(reorderGesture(m.id, index: i))
                         }
                         if !store.sharedPlaces.isEmpty {
                             Text("ОБЩИЕ МЕСТА").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 12)
