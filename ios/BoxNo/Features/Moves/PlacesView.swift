@@ -113,15 +113,15 @@ struct PlacesView: View {
         }
         .navigationDestination(item: $open) { ref in PlaceView(store: store, placeId: ref.id) }
         .overlay { if creating { ProgressView().controlSize(.large) } }
+        .alert("Не получилось", isPresented: .init(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
+            Button("Ок") {}
+        } message: { Text(store.error ?? "") }
     }
 
     private func deleteMove() async {
         deleting = true; defer { deleting = false }
         do { try await MovesStore.deleteMove(store.move.id); confirmDelete = false; dismiss() }
         catch { store.error = "Не удалось удалить переезд: \(error.localizedDescription)" }
-        .alert("Не получилось", isPresented: .init(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
-            Button("Ок") {}
-        } message: { Text(store.error ?? "") }
     }
 
     private var header: some View {
