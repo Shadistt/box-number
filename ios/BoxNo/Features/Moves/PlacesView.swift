@@ -206,8 +206,10 @@ struct PlaceTile: View {
                 RoundedRectangle(cornerRadius: 16).fill(place.status == .packed ? Theme.dark : Theme.tile)
                     .aspectRatio(1, contentMode: .fit)
                 if let photo {
-                    Image(uiImage: photo).resizable().scaledToFill()
-                        .aspectRatio(1, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 16))
+                    // Квадрат плитки задаёт прозрачный слой, фото — заливкой внутри: иначе картинка растягивала сетку.
+                    Color.clear.aspectRatio(1, contentMode: .fit)
+                        .overlay { Image(uiImage: photo).resizable().scaledToFill() }
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                         .overlay(alignment: .bottomLeading) {
                             Text(place.number).font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .padding(.horizontal, 8).padding(.vertical, 3)
