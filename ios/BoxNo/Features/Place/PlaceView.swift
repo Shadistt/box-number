@@ -173,7 +173,7 @@ struct PlaceView: View {
                         if place.numberPhoto != nil { placePhotoViewer = true } else if editable { placePhotoMenu = true }
                     } label: { BoxTileView(place: place, size: 112, cameraHint: editable) }.buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 6) {
-                        TextField("\(place.kind.title) без названия", text: $title)
+                        TextField("Без названия", text: $title)   // тип и так в чипах ниже; «Чемодан или сумка без названия» не влезало
                             .font(.system(size: 22, weight: .heavy)).lineLimit(1)
                             .focused($titleFocused).submitLabel(.done).disabled(!editable)
                             .onSubmit { saveTitle(); titleFocused = false }

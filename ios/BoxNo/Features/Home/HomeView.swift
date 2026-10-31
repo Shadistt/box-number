@@ -11,6 +11,22 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
+            // Шапка — поверх списка на «матовом стекле»: карточки уходят под неё с размытием, а не обрезаются линией.
+            MovesListView(startEmpty: startEmpty)
+                .padding(.horizontal, 16)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    header.padding(.horizontal, 16).padding(.bottom, 10)
+                        .background(.ultraThinMaterial, ignoresSafeAreaEdges: .top)
+                }
+            .background(Theme.bg)
+            .sheet(isPresented: $showSettings) { SettingsView() }
+            .alert("Скоро", isPresented: $showSoon) { Button("Ок") {} } message: {
+                Text("Хранение и Посылки появятся после переездов.")
+            }
+        }
+    }
+
+    private var header: some View {
             VStack(spacing: 16) {
                 HStack {
                     (Text("Box ") + Text("Nº").foregroundStyle(Theme.accent))
@@ -36,15 +52,6 @@ struct HomeView: View {
                     }
                 }
                 .padding(4).background(Theme.fill, in: RoundedRectangle(cornerRadius: 13))
-
-                MovesListView(startEmpty: startEmpty)
             }
-            .padding(.horizontal, 16)
-            .background(Theme.bg)
-            .sheet(isPresented: $showSettings) { SettingsView() }
-            .alert("Скоро", isPresented: $showSoon) { Button("Ок") {} } message: {
-                Text("Хранение и Посылки появятся после переездов.")
-            }
-        }
     }
 }
