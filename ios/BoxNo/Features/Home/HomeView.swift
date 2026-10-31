@@ -12,8 +12,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             // Шапка — поверх списка на «матовом стекле»: карточки уходят под неё с размытием, а не обрезаются линией.
-            MovesListView(startEmpty: startEmpty)
-                .padding(.horizontal, 16)
+            MovesListView(startEmpty: startEmpty)       // боковой отступ — внутри списка, чтобы ScrollView не обрезал тень поднятой карточки
                 .safeAreaInset(edge: .top, spacing: 0) {
                     header.padding(.horizontal, 16).padding(.bottom, 10)
                         .background(.ultraThinMaterial, ignoresSafeAreaEdges: .top)

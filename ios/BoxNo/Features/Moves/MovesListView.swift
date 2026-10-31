@@ -10,7 +10,8 @@ struct MovesListView: View {
     @State private var dragging: UUID? = nil
     @State private var dragOffset: CGFloat = 0
     @State private var dropIndex: Int? = nil
-    @State private var heights: [UUID: CGFloat] = [:]
+    @State private var frames: [UUID: CGRect] = [:]     // рамки карточек в .global — найти карточку под пальцем и высоты для раздвигания
+    @State private var dragStartY: CGFloat = 0
     private let spacing: CGFloat = 10
 
     private var active: [Move] { store.moves.filter { $0.status == "active" } }
@@ -25,19 +26,17 @@ struct MovesListView: View {
                         Text("СЕЙЧАС").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 8)
                         ForEach(Array(active.enumerated()), id: \.element.id) { i, m in
                             let lifted = dragging == m.id
-                            // Тап — настоящая кнопка (в 41 жест перетаскивания глотал тап и прокрутку); перетаскивание — одновременный жест.
+                            // Тап — настоящая кнопка; «зажать и тянуть» — UIKit-распознаватель на ScrollView (ListLongPress ниже),
+                            // без SwiftUI-жестов на карточке: они ломали прокрутку или тап (релизы 41–43).
                             Button { if dragging == nil { openMove = m } } label: {
                                 MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0)
                             }
                                 .buttonStyle(.plain)
-                                .background(GeometryReader { g in Color.clear.preference(key: CardHeightKey.self, value: [m.id: g.size.height]) })
+                                .background(GeometryReader { g in Color.clear.preference(key: CardFrameKey.self, value: [m.id: g.frame(in: .global)]) })
                                 .scaleEffect(lifted ? 1.03 : 1)
                                 .shadow(color: .black.opacity(lifted ? 0.22 : 0), radius: lifted ? 16 : 0, y: lifted ? 8 : 0)
                                 .offset(y: lifted ? dragOffset : shift(i))
                                 .zIndex(lifted ? 1 : 0)
-                                .contentShape(Rectangle())
-                                // simultaneousGesture: иначе жест перехватывал прокрутку списка
-                                .simultaneousGesture(reorderGesture(m.id, index: i))
                         }
                         if !store.sharedPlaces.isEmpty {
                             Text("ОБЩИЕ МЕСТА").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 12)
@@ -57,8 +56,13 @@ struct MovesListView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 16)           // отступ внутри ScrollView: тень и увеличение поднятой карточки не обрезаются краем
                 .padding(.bottom, 110)
-                .onPreferenceChange(CardHeightKey.self) { heights.merge($0) { $1 } }
+                .background(ListLongPress(began: liftCard, moved: moveCard, ended: dropCard, cancelled: cancelDrag))
+                .onPreferenceChange(CardFrameKey.self) { new in
+                    // Во время перетаскивания рамки едут вместе с карточками — порядок и высоты берём из снимка до подъёма.
+                    if dragging == nil { frames = new }
+                }
             }
             .scrollIndicators(.hidden)             // полоса прокрутки не нужна — карточки и так читаются
             .scrollDisabled(dragging != nil)
@@ -73,61 +77,52 @@ struct MovesListView: View {
         .sheet(isPresented: $showNew) { NewMoveView(store: store) }
     }
 
-    private func height(_ m: Move) -> CGFloat { heights[m.id] ?? 100 }
+    private func height(_ m: Move) -> CGFloat { frames[m.id]?.height ?? 100 }
 
-    /// Долгое нажатие (0.35 с) → перетаскивание. Массив не меняется до отпускания.
-    /// «Зажать и тянуть» без LongPressGesture: она в ScrollView блокировала и прокрутку, и тапы (релизы 41–42).
-    /// Один DragGesture, одновременный со скроллом и кнопкой: пока палец не двигается 0,35 с — «вооружаемся»;
-    /// сдвинулся раньше — это прокрутка, ничего не делаем.
-    private func reorderGesture(_ id: UUID, index start: Int) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
-            .onChanged { v in
-                if dragging == id {
-                    dragOffset = v.translation.height
-                    let target = targetIndex(from: start, translation: v.translation.height)
-                    if target != dropIndex {
-                        withAnimation(.snappy(duration: 0.25)) { dropIndex = target }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                    }
-                    return
-                }
-                guard dragging == nil else { return }
-                if pressStart == nil {
-                    pressStart = (id, Date())
-                    armTask?.cancel()
-                    armTask = Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(0.35))
-                        guard !Task.isCancelled, pressStart?.0 == id, dragging == nil else { return }
-                        withAnimation(.snappy(duration: 0.2)) { dragging = id }
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    }
-                } else if abs(v.translation.height) > 8 || abs(v.translation.width) > 8 {
-                    armTask?.cancel(); pressStart = nil      // поехал раньше — это прокрутка
-                }
-            }
-            .onEnded { v in
-                armTask?.cancel(); pressStart = nil
-                guard dragging == id else { return }
-                let target = dropIndex ?? start
-                var ids = active.map(\.id)
-                let moved = ids.remove(at: start); ids.insert(moved, at: target)
-                var t = Transaction(); t.disablesAnimations = true
-                withTransaction(t) {
-                    // визуально карточка остаётся под пальцем: компенсируем смену позиции в массиве
-                    let delta = topOffset(of: target, in: ids) - topOffset(of: start, in: active.map(\.id))
-                    dragOffset = v.translation.height - delta
-                    dropIndex = nil
-                    if target != start { Task { await store.reorder(ids) } }
-                }
-                withAnimation(.snappy(duration: 0.25)) { dragOffset = 0; dragging = nil }
-            }
+    // MARK: перетаскивание (точки — в координатах окна)
+
+    /// Палец удержали 0,35 с: поднимаем карточку под ним. Массив не меняется до отпускания.
+    private func liftCard(at p: CGPoint) {
+        guard dragging == nil, let m = active.first(where: { frames[$0.id]?.contains(p) == true }) else { return }
+        dragStartY = p.y; dragOffset = 0; dropIndex = nil
+        withAnimation(.snappy(duration: 0.2)) { dragging = m.id }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
-    @State private var pressStart: (UUID, Date)? = nil
-    @State private var armTask: Task<Void, Never>? = nil
+
+    private func moveCard(to p: CGPoint) {
+        guard let dragging, let start = active.firstIndex(where: { $0.id == dragging }) else { return }
+        dragOffset = p.y - dragStartY
+        let target = targetIndex(from: start, translation: dragOffset)
+        if target != dropIndex {
+            withAnimation(.snappy(duration: 0.25)) { dropIndex = target }
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
+
+    private func dropCard(at p: CGPoint) {
+        guard let dragging, let start = active.firstIndex(where: { $0.id == dragging }) else { return }
+        let target = dropIndex ?? start
+        var ids = active.map(\.id)
+        let moved = ids.remove(at: start); ids.insert(moved, at: target)
+        var t = Transaction(); t.disablesAnimations = true
+        withTransaction(t) {
+            // визуально карточка остаётся под пальцем: компенсируем смену позиции в массиве
+            let delta = topOffset(of: target, in: ids) - topOffset(of: start, in: active.map(\.id))
+            dragOffset = p.y - dragStartY - delta
+            dropIndex = nil
+            if target != start { Task { await store.reorder(ids) } }
+        }
+        withAnimation(.snappy(duration: 0.25)) { dragOffset = 0; self.dragging = nil }
+    }
+
+    private func cancelDrag() {
+        guard dragging != nil else { return }
+        withAnimation(.snappy(duration: 0.25)) { dragOffset = 0; dropIndex = nil; dragging = nil }
+    }
 
     /// Верх карточки с данным индексом в заданном порядке (сумма высот + отступы).
     private func topOffset(of index: Int, in ids: [UUID]) -> CGFloat {
-        ids.prefix(index).reduce(0) { $0 + (heights[$1] ?? 100) + spacing }
+        ids.prefix(index).reduce(0) { $0 + (frames[$1]?.height ?? 100) + spacing }
     }
 
     /// Куда «упадёт» поднятая карточка: ищем индекс по центру карточки относительно соседей.
@@ -153,9 +148,9 @@ struct MovesListView: View {
     }
 }
 
-struct CardHeightKey: PreferenceKey {
-    static var defaultValue: [UUID: CGFloat] = [:]
-    static func reduce(value: inout [UUID: CGFloat], nextValue: () -> [UUID: CGFloat]) { value.merge(nextValue()) { $1 } }
+struct CardFrameKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) { value.merge(nextValue()) { $1 } }
 }
 
 struct MoveCard: View {
