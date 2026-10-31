@@ -31,7 +31,7 @@ struct ListLongPress: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: ListLongPress
         private weak var recognizer: UILongPressGestureRecognizer?
         init(_ parent: ListLongPress) { self.parent = parent }
@@ -42,14 +42,22 @@ struct ListLongPress: UIViewRepresentable {
             let g = UILongPressGestureRecognizer(target: self, action: #selector(handle))
             g.minimumPressDuration = 0.35
             g.allowableMovement = 8
+            g.delegate = self
             scroll.addGestureRecognizer(g)
             recognizer = g
         }
 
+        /// SwiftUI держит на корневом виде свои распознаватели (кнопка, прокрутка) и по умолчанию они «побеждают» наш:
+        /// в сборке 78 долгое нажатие не срабатывало вовсе. Разрешаем одновременное распознавание.
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
         @objc private func handle(_ g: UILongPressGestureRecognizer) {
             let p = g.location(in: nil)
             switch g.state {
-            case .began: parent.began(p)
+            case .began:
+                // Карточка поднялась — прокрутку этого касания обрываем сразу (scrollDisabled в SwiftUI догонит на следующем кадре).
+                if let scroll = g.view as? UIScrollView { scroll.panGestureRecognizer.isEnabled = false; scroll.panGestureRecognizer.isEnabled = true }
+                parent.began(p)
             case .changed: parent.moved(p)
             case .ended: parent.ended(p)
             default: parent.cancelled()

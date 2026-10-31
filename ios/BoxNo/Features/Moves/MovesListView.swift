@@ -12,6 +12,7 @@ struct MovesListView: View {
     @State private var dropIndex: Int? = nil
     @State private var frames: [UUID: CGRect] = [:]     // рамки карточек в .global — найти карточку под пальцем и высоты для раздвигания
     @State private var dragStartY: CGFloat = 0
+    @State private var justDropped = false              // отпустили после переноса — тап кнопки по этому же касанию не считаем
     private let spacing: CGFloat = 10
 
     private var active: [Move] { store.moves.filter { $0.status == "active" } }
@@ -28,7 +29,7 @@ struct MovesListView: View {
                             let lifted = dragging == m.id
                             // Тап — настоящая кнопка; «зажать и тянуть» — UIKit-распознаватель на ScrollView (ListLongPress ниже),
                             // без SwiftUI-жестов на карточке: они ломали прокрутку или тап (релизы 41–43).
-                            Button { if dragging == nil { openMove = m } } label: {
+                            Button { if dragging == nil && !justDropped { openMove = m } } label: {
                                 MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0)
                             }
                                 .buttonStyle(.plain)
@@ -113,6 +114,8 @@ struct MovesListView: View {
             if target != start { Task { await store.reorder(ids) } }
         }
         withAnimation(.snappy(duration: 0.25)) { dragOffset = 0; self.dragging = nil }
+        justDropped = true
+        Task { try? await Task.sleep(for: .seconds(0.4)); justDropped = false }
     }
 
     private func cancelDrag() {
