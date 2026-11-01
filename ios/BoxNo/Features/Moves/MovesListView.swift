@@ -25,7 +25,7 @@ struct MovesListView: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing) {
-                    InvitationsSection(onChanged: { await store.load() }, onDeclined: { withAnimation(.snappy) { declined = $0 } })
+                    InvitationsSection(onChanged: { await store.load() }, onDeclined: { inv in withAnimation(.snappy) { declined = inv } })
                     if store.moves.isEmpty && store.sharedPlaces.isEmpty && store.loaded && !store.loading && AccessStore.shared.invitations.isEmpty {
                         EmptyMovesView()
                     } else {
