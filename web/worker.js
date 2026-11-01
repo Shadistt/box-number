@@ -16,8 +16,9 @@ const ORIGIN = "https://boxnumber.co";
 
 const LANGS = ["ru", "uk", "en", "de", "fr", "es", "it", "nl", "pl", "pt"];
 const NATIVE = { ru: "Русский", uk: "Українська", en: "English", de: "Deutsch", fr: "Français", es: "Español", it: "Italiano", nl: "Nederlands", pl: "Polski", pt: "Português" };
-// Порядок в переключателе — по алфавиту названий (латиница, затем кириллица).
-const SWITCH_ORDER = ["de", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "uk"];
+// Порядок в переключателе — по английским названиям языков: Dutch, English, French, German, Italian,
+// Polish, Portuguese, Russian, Spanish, Ukrainian (сами пункты — на своём языке).
+const SWITCH_ORDER = ["nl", "en", "fr", "de", "it", "pl", "pt", "ru", "es", "uk"];
 // Страна → язык: только когда браузер не прислал Accept-Language (боты, редкие клиенты).
 const COUNTRY_LANG = {
   UA: "uk", RU: "ru", BY: "ru", KZ: "ru", KG: "ru", MD: "ru",
