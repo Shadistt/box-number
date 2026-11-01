@@ -122,12 +122,17 @@ final class AccessStore {
 
     // MARK: доступ к переезду (§9)
 
+    /// Последний загруженный список доступа по переезду — экран «Кто видит переезд» открывается сразу с ним,
+    /// а не с выключенными переключателями до ответа сервера.
+    var moveAccessCache: [UUID: [AccessRow]] = [:]
+
     func moveAccess(_ moveId: UUID) async -> [AccessRow] {
         do {
             let rows: [AccessRow] = try await supabase.from("move_access").select("id,user_id,invited_email,role,status,created_at")
                 .eq("move_id", value: moveId).execute().value
+            moveAccessCache[moveId] = rows
             await loadPeople(rows.compactMap(\.userId)); return rows
-        } catch { print("move access:", error); return [] }
+        } catch { print("move access:", error); return moveAccessCache[moveId] ?? [] }
     }
     func grantMove(_ moveId: UUID, userId: UUID, role: String) async throws {
         struct Row: Encodable { var move_id: UUID; var user_id: UUID; var role: String; var status = "active"; var granted_by: UUID? }

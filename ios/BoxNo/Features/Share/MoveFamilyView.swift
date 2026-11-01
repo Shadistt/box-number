@@ -12,6 +12,8 @@ struct MoveFamilyView: View {
     @State private var busy = false
     @State private var toast: String? = nil
     @State private var inviteContacts = false
+    /// Пока список доступа не загружен — переключатели не показываем «выключенными» (раньше они щёлкали через ~1 с).
+    @State private var loaded = false
 
     private var onCount: Int { access.others.filter { m in rows.contains { $0.userId == m.userId && m.userId != nil } || (m.invitedEmail != nil && rows.contains { $0.invitedEmail == m.invitedEmail }) }.count }
     private var validEmail: Bool { let e = email.trimmingCharacters(in: .whitespaces); return e.contains("@") && e.contains(".") }
@@ -23,7 +25,7 @@ struct MoveFamilyView: View {
                     Text("\(move.displayTitle(destinations: [])) · \(Plural.places(placesCount)). Только для этого переезда: другие переезды не затрагиваются.")
                         .font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
 
-                    SectionTitle("Семья · \(onCount) из \(access.others.count) видят")
+                    SectionTitle(loaded ? "Семья · \(onCount) из \(access.others.count) видят" : "Семья")
                     SettingsCard {
                         if access.others.isEmpty {
                             Text("В семье пока никого. Добавьте первого ниже.").font(.subheadline).foregroundStyle(Theme.muted).padding(16)
@@ -73,7 +75,13 @@ struct MoveFamilyView: View {
             .sheet(isPresented: $inviteContacts) {
                 ContactsPicker { emails in if let e = emails.first { email = e } }.ignoresSafeArea()
             }
-            .task { await access.loadFamily(); rows = await access.moveAccess(move.id) }
+            .task {
+                if let cached = access.moveAccessCache[move.id] { rows = cached; loaded = true }   // повторное открытие — сразу
+                async let fam: Void = access.loadFamily()            // семья и доступ — параллельно, не по очереди
+                async let acc = access.moveAccess(move.id)
+                let (_, r) = await (fam, acc)
+                rows = r; loaded = true
+            }
         }
     }
 
@@ -86,7 +94,7 @@ struct MoveFamilyView: View {
             PersonAvatar(person: access.person(m.userId), fallback: String((m.invitedEmail ?? "?").prefix(1)).uppercased())
             VStack(alignment: .leading, spacing: 2) {
                 Text(access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                Text(declined ? "отклонил(а) приглашение" : pending ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
+                Text(!loaded ? " " : declined ? "отклонил(а) приглашение" : pending ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()
@@ -95,7 +103,11 @@ struct MoveFamilyView: View {
                     .font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 30)
                     .background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
             }
-            Toggle("", isOn: Binding(get: { on }, set: { v in Task { await set(m, on: v, existing: row) } })).labelsHidden().tint(Theme.accent)
+            if loaded {
+                Toggle("", isOn: Binding(get: { on }, set: { v in Task { await set(m, on: v, existing: row) } })).labelsHidden().tint(Theme.accent)
+            } else {
+                ProgressView().frame(width: 51, height: 31)   // место переключателя, пока не знаем состояние
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
     }
