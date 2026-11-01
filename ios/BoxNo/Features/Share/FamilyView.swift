@@ -22,12 +22,12 @@ struct FamilyView: View {
                             PersonAvatar(person: access.person(m.userId), fallback: isMe ? "Я" : String((m.invitedEmail ?? "?").prefix(1)).uppercased())
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(isMe ? "Вы" : access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                                Text(isMe ? (access.person(m.userId)?.email ?? "") : m.status == "invited" ? "приглашение отправлено \(m.createdAt.formatted(.relative(presentation: .named)))" : "в семье с \(m.createdAt.formatted(.dateTime.day().month()))")
+                                Text(isMe ? (access.person(m.userId)?.email ?? "") : m.status == "declined" ? "отклонил(а) приглашение" : m.status != "active" ? "приглашение отправлено \(m.createdAt.formatted(.relative(presentation: .named)))" : "в семье с \(m.createdAt.formatted(.dateTime.day().month()))")
                                     .font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
                             }
                             Spacer()
                             if !isMe {
-                                if m.status == "invited" {
+                                if m.status == "invited" || m.status == "pending" {
                                     Button("Напомнить") { Task { await remind(m) } }.font(.footnote.weight(.semibold))
                                         .padding(.horizontal, 10).frame(height: 30).background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
                                 }

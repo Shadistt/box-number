@@ -179,12 +179,67 @@ final class AccessStore {
     }
 
     /// После входа: приглашения по моему email становятся доступом.
+    // MARK: приглашения мне (pending) и блокировки
+
+    struct Invitation: Decodable, Identifiable, Hashable {
+        var kind: String            // family | move | place
+        var id: UUID
+        var inviterId: UUID
+        var inviterName: String
+        var inviterEmail: String
+        var title: String?
+        var role: String
+        var createdAt: Date
+        enum CodingKeys: String, CodingKey { case kind, id, title, role
+            case inviterId = "inviter_id", inviterName = "inviter_name", inviterEmail = "inviter_email", createdAt = "created_at" }
+        var text: String {
+            switch kind {
+            case "family": "приглашает вас в семью"
+            case "move": "приглашает вас в переезд «\(title ?? "")» и в семью"
+            default: "открывает вам место \(title ?? "")"
+            }
+        }
+        var roleText: String { role == "edit" ? "можно редактировать" : "только смотреть" }
+    }
+    struct Block: Decodable, Identifiable, Hashable {
+        var id: UUID; var email: String; var name: String?; var createdAt: Date
+        enum CodingKeys: String, CodingKey { case id, email, name, createdAt = "created_at" }
+    }
+    var invitations: [Invitation] = []
+    var blocks: [Block] = []
+
+    func loadInvitations() async {
+        do { invitations = try await supabase.rpc("my_invitations").execute().value } catch { print("my_invitations:", error) }
+    }
+    /// Принять / отклонить. Переезд и семья от одного человека — один ответ на оба (ТЗ §9).
+    func respond(_ inv: Invitation, accept: Bool) async throws {
+        struct P: Encodable { var p_kind: String; var p_id: UUID; var p_accept: Bool }
+        try await supabase.rpc("respond_invitation", params: P(p_kind: inv.kind, p_id: inv.id, p_accept: accept)).execute()
+        invitations.removeAll { $0.id == inv.id || ($0.inviterId == inv.inviterId && ($0.kind == "family" || inv.kind == "family") && $0.kind != "place") }
+        if accept { MovesStore.clearCache() }
+    }
+    /// Заблокировать: его приглашения больше не доходят; он об этом не узнаёт.
+    @discardableResult
+    func block(email: String) async throws -> UUID {
+        let id: UUID = try await supabase.rpc("block_user", params: ["p_email": email]).execute().value
+        invitations.removeAll { $0.inviterEmail.lowercased() == email.lowercased() }
+        await loadBlocks()
+        return id
+    }
+    func unblock(_ id: UUID) async throws {
+        try await supabase.from("blocks").delete().eq("id", value: id).execute()
+        blocks.removeAll { $0.id == id }
+    }
+    func loadBlocks() async {
+        do { blocks = try await supabase.rpc("my_blocks").execute().value } catch { print("my_blocks:", error) }
+    }
+
     func claimInvites() async {
         do { let n: Int = try await supabase.rpc("claim_invites").execute().value; if n > 0 { MovesStore.clearCache() } }
         catch { print("claim_invites:", error) }
     }
 
-    func clear() { familyId = nil; family = []; people = [:]; recent = []; loaded = false }
+    func clear() { familyId = nil; family = []; people = [:]; recent = []; invitations = []; blocks = []; loaded = false }
 }
 
 /// Кружок с инициалом или фото — для списков людей.

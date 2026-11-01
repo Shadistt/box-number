@@ -6,6 +6,7 @@ struct MovesListView: View {
     @State private var store = MovesStore()
     @State private var showNew = false
     @State private var created: Move? = nil
+    @State private var declined: AccessStore.Invitation? = nil   // после «Отклонить» — предложить заблокировать
     @Environment(\.scenePhase) private var scenePhase
     @State private var openMove: Move? = nil
     @State private var openShared: Place? = nil
@@ -24,7 +25,8 @@ struct MovesListView: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: spacing) {
-                    if store.moves.isEmpty && store.sharedPlaces.isEmpty && store.loaded && !store.loading {
+                    InvitationsSection(onChanged: { await store.load() }, onDeclined: { withAnimation(.snappy) { declined = $0 } })
+                    if store.moves.isEmpty && store.sharedPlaces.isEmpty && store.loaded && !store.loading && AccessStore.shared.invitations.isEmpty {
                         EmptyMovesView()
                     } else {
                         Text("СЕЙЧАС").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).padding(.top, 8)
@@ -73,18 +75,19 @@ struct MovesListView: View {
             FAB(title: "Новый переезд") { showNew = true }
             .padding(.bottom, 20)
         }
+        .overlay { BlockAfterDeclineOverlay(invitation: $declined) }
         .navigationDestination(item: $openMove) { m in PlacesView(move: m, destinations: store.destinations[m.id] ?? []) }
         .navigationDestination(item: $openShared) { p in PlaceView(store: PlacesStore(move: .placeholder(id: p.moveId), destinations: []), placeId: p.id) }
-        .task { await store.load() }
+        .task { await store.load(); await AccessStore.shared.loadInvitations() }
         // Живые обновления: дали доступ, добавили в семью, изменился чужой переезд → список сам обновится.
         .task(id: supabase.auth.currentUser?.id) {
             guard let uid = supabase.auth.currentUser?.id else { return }
-            await LiveUpdates.watchHome(userId: uid) { await store.load() }
+            await LiveUpdates.watchHome(userId: uid) { await store.load(); await AccessStore.shared.loadInvitations() }
         }
         .onAppear { Task { await store.load() } }
         // Вернулись в приложение — обновить список: доступ к чужому переезду мог появиться, пока нас не было.
-        .onChange(of: scenePhase) { _, p in if p == .active { Task { await store.load() } } }
-        .refreshable { await store.load() }
+        .onChange(of: scenePhase) { _, p in if p == .active { Task { await store.load(); await AccessStore.shared.loadInvitations() } } }
+        .refreshable { await store.load(); await AccessStore.shared.loadInvitations() }
         // Новый переезд открываем сразу (после закрытия листа — иначе push и dismiss спорят).
         .sheet(isPresented: $showNew, onDismiss: { if let m = created { created = nil; openMove = m } }) {
             NewMoveView(store: store, onCreated: { created = $0 })

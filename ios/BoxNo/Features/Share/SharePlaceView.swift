@@ -128,7 +128,7 @@ struct SharePlaceView: View {
                                 PersonAvatar(person: access.person(r.userId), fallback: String((r.invitedEmail ?? "?").prefix(1)).uppercased())
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(access.name(r)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                                    Text(r.status == "invited" ? "видит через переезд · ждём ответа" : "видит через переезд").font(.footnote).lineLimit(1)
+                                    Text(r.status == "declined" ? "отклонил(а) приглашение в переезд" : r.status != "active" ? "видит через переезд · ждём ответа" : "видит через переезд").font(.footnote).lineLimit(1)
                                 }
                                 Spacer()
                                 Text(r.role == "edit" ? "Редактирует" : "Смотрит").font(.footnote.weight(.semibold))
@@ -186,7 +186,8 @@ struct SharePlaceView: View {
     }
 
     private func sub(_ r: AccessRow) -> String {
-        if r.status == "invited" { return "приглашение отправлено · ждём" }
+        if r.status == "declined" { return "отклонил(а) приглашение" }
+        if r.status != "active" { return "приглашение отправлено · ждём" }
         let fam = access.family.contains { $0.userId == r.userId } ? "из семьи · " : ""
         if let at = r.lastOpenedAt { return fam + "открывал " + at.formatted(.relative(presentation: .named)) }
         return fam + "ещё не открывал"

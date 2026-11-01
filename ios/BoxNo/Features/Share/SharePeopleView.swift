@@ -58,7 +58,7 @@ struct SharePeopleView: View {
                             ForEach(Array(familyRows.enumerated()), id: \.element.id) { i, m in
                                 if i > 0 { Divider().padding(.leading, 68) }
                                 personRow(id: m.userId, email: m.invitedEmail,
-                                          sub: m.status == "invited" ? "семья · ещё не приняла приглашение" : (m.userId.map(existing.contains) == true ? "уже видит место" : "семья"),
+                                          sub: m.status != "active" ? "семья · ещё не приняла приглашение" : (m.userId.map(existing.contains) == true ? "уже видит место" : "семья"),
                                           has: m.userId.map(existing.contains) == true)
                             }
                         }

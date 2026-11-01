@@ -55,6 +55,8 @@ struct SettingsView: View {
                         NavigationLink { ThemeView() } label: { Row("Тема", value: (AppTheme(rawValue: theme) ?? .system).title) }
                         Divider().padding(.leading, 16)
                         NavigationLink { PermissionsView() } label: { Row("Разрешения") }
+                        Divider().padding(.leading, 16)
+                        NavigationLink { BlockedView() } label: { Row("Заблокированные") }
                     }
                     SettingsCard {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }

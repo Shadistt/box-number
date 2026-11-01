@@ -80,12 +80,13 @@ struct MoveFamilyView: View {
     private func memberRow(_ m: FamilyMember) -> some View {
         let row = rows.first { ($0.userId != nil && $0.userId == m.userId) || ($0.invitedEmail != nil && $0.invitedEmail == m.invitedEmail) }
         let on = row != nil
-        let pending = m.status == "invited"
+        let pending = m.status == "invited" || m.status == "pending"
+        let declined = m.status == "declined" || row?.status == "declined"
         return HStack(spacing: 12) {
             PersonAvatar(person: access.person(m.userId), fallback: String((m.invitedEmail ?? "?").prefix(1)).uppercased())
             VStack(alignment: .leading, spacing: 2) {
                 Text(access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                Text(pending ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
+                Text(declined ? "отклонил(а) приглашение" : pending ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()
