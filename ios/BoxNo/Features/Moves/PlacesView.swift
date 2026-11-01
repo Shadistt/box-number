@@ -111,6 +111,8 @@ struct PlacesView: View {
         }
         .animation(.snappy, value: searching)
         .task { await store.load() }
+        // Живые обновления от семьи и соредакторов: новое место, вещь, направление.
+        .task { await LiveUpdates.watchMove(store.move.id) { await store.load() } }
         .onAppear { if store.loaded { Task { await store.load() } } }
         .sheet(isPresented: $showTypePicker) {
             TypePickerView { kind, custom in Task { await create(kind, custom) } }

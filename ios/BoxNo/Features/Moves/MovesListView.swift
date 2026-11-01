@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct MovesListView: View {
     let startEmpty: Bool
@@ -75,6 +76,11 @@ struct MovesListView: View {
         .navigationDestination(item: $openMove) { m in PlacesView(move: m, destinations: store.destinations[m.id] ?? []) }
         .navigationDestination(item: $openShared) { p in PlaceView(store: PlacesStore(move: .placeholder(id: p.moveId), destinations: []), placeId: p.id) }
         .task { await store.load() }
+        // Живые обновления: дали доступ, добавили в семью, изменился чужой переезд → список сам обновится.
+        .task(id: supabase.auth.currentUser?.id) {
+            guard let uid = supabase.auth.currentUser?.id else { return }
+            await LiveUpdates.watchHome(userId: uid) { await store.load() }
+        }
         .onAppear { Task { await store.load() } }
         // Вернулись в приложение — обновить список: доступ к чужому переезду мог появиться, пока нас не было.
         .onChange(of: scenePhase) { _, p in if p == .active { Task { await store.load() } } }
