@@ -46,7 +46,8 @@ struct PlacesView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
-                if !searching { header.transition(.move(edge: .top).combined(with: .opacity)) }
+                // Шапка уходит мгновенно (без затухания): иначе её текст просвечивал под поднимающимся полем поиска.
+                if !searching { header.transition(.asymmetric(insertion: .opacity, removal: .identity)) }
                 HStack(spacing: 10) {
                     SearchField(text: $query, placeholder: "Найти вещь или место", focused: $searching)
                     if searching {
@@ -109,7 +110,7 @@ struct PlacesView: View {
                 }
             }
         }
-        .animation(.snappy, value: searching)
+        .animation(.snappy(duration: 0.22), value: searching)   // короче стандартных 0,5 с — поле поиска встаёт сразу
         .task { await store.load() }
         // Живые обновления от семьи и соредакторов: новое место, вещь, направление.
         .task { await LiveUpdates.watchMove(store.move.id) { await store.load() } }
