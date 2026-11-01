@@ -75,7 +75,7 @@ enum PhotoStore {
 
     private static func decode(_ data: Data, encrypted: Bool) async -> UIImage? {
         guard encrypted else { return UIImage(data: data) }
-        guard let plain = await SafeSession.shared.decrypt(data) else { return nil }
+        guard let plain = SafeSession.shared.decrypt(data) else { return nil }
         return UIImage(data: plain)
     }
 

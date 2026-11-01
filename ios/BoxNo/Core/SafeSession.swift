@@ -10,14 +10,20 @@ import Supabase
 /// пока приложение на экране; названия вещей и фото шифруются AES-GCM. Сервер видит только шифртекст.
 /// Проверка пароля — расшифровкой «проверочной строки» из профиля (profiles.safe_verifier).
 /// Face ID — по желанию: ключ кладётся в Keychain под биометрией этого устройства.
-@MainActor
 @Observable
-final class SafeSession {
+final class SafeSession: @unchecked Sendable {
     static let shared = SafeSession()
-    private(set) var key: SymmetricKey?
-    var isOpen: Bool { key != nil }
+    /// Ключ — под замком: шифрование/расшифровка зовутся и с главного потока, и из загрузки фото.
+    @ObservationIgnored private let keyLock = NSLock()
+    @ObservationIgnored private var _key: SymmetricKey?
+    private var key: SymmetricKey? {
+        get { keyLock.lock(); defer { keyLock.unlock() }; return _key }
+        set { keyLock.lock(); _key = newValue; keyLock.unlock(); Task { @MainActor in self.isOpen = newValue != nil } }
+    }
+    /// Наблюдаемое состояние для экранов (меняется на главном потоке).
+    @MainActor private(set) var isOpen = false
     /// Включён ли вход по Face ID на этом устройстве (ключ лежит в Keychain).
-    private(set) var biometryEnabled = UserDefaults.standard.bool(forKey: "safe_biometry")
+    @MainActor private(set) var biometryEnabled = UserDefaults.standard.bool(forKey: "safe_biometry")
 
     static let iterations = 200_000
     private static let verifierText = "boxno-safe-v1"
@@ -26,10 +32,10 @@ final class SafeSession {
     // MARK: пароль
 
     /// Пароль ещё не задан (в профиле нет соли).
-    var needsSetup: Bool { ProfileStore.shared.profile?.safeSalt == nil }
+    @MainActor var needsSetup: Bool { ProfileStore.shared.profile?.safeSalt == nil }
 
     /// Первый сейф: соль + ключ + проверочная строка → профиль. Пароль не хранится нигде.
-    func setup(password: String) async throws {
+    @MainActor func setup(password: String) async throws {
         var salt = Data(count: 16); _ = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
         let k = try await Self.derive(password: password, salt: salt, iterations: Self.iterations)
         let verifier = try AES.GCM.seal(Data(Self.verifierText.utf8), using: k).combined!
@@ -38,7 +44,7 @@ final class SafeSession {
     }
 
     /// Открыть сейф паролем. false — пароль не подошёл.
-    func open(password: String) async throws -> Bool {
+    @MainActor func open(password: String) async throws -> Bool {
         guard let p = ProfileStore.shared.profile, let saltB64 = p.safeSalt, let salt = Data(base64Encoded: saltB64),
               let verB64 = p.safeVerifier, let verifier = Data(base64Encoded: verB64) else { throw SafeError.notSetUp }
         let k = try await Self.derive(password: password, salt: salt, iterations: p.safeKdfIter ?? Self.iterations)
@@ -49,20 +55,20 @@ final class SafeSession {
     }
 
     /// Закрыть: ключ стирается из памяти, расшифрованные картинки — из кеша.
-    func lock() {
+    @MainActor func lock() {
         guard key != nil else { return }
-        key = nil
+        key = nil; isOpen = false
         PhotoStore.dropMemoryCache()
     }
 
     // MARK: Face ID
 
-    var biometryAvailable: Bool {
+    @MainActor var biometryAvailable: Bool {
         var e: NSError?; return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &e)
     }
 
     /// Положить текущий ключ в Keychain под Face ID (только пока сейф открыт).
-    func enableBiometry() throws {
+    @MainActor func enableBiometry() throws {
         guard let key else { throw SafeError.locked }
         let data = key.withUnsafeBytes { Data($0) }
         var err: Unmanaged<CFError>?
@@ -80,14 +86,14 @@ final class SafeSession {
         UserDefaults.standard.set(true, forKey: "safe_biometry")
     }
 
-    func disableBiometry() {
+    @MainActor func disableBiometry() {
         SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: Self.keychainAccount] as CFDictionary)
         biometryEnabled = false
         UserDefaults.standard.set(false, forKey: "safe_biometry")
     }
 
     /// Открыть по Face ID: система сама спросит лицо при чтении из Keychain.
-    func openWithBiometry() async -> Bool {
+    @MainActor func openWithBiometry() async -> Bool {
         let ctx = LAContext(); ctx.localizedReason = "Открыть сейф"
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: Self.keychainAccount,
                                 kSecReturnData as String: true, kSecUseAuthenticationContext as String: ctx]
