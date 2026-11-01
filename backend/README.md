@@ -12,6 +12,7 @@
 - `photo-view-url` — `POST { key }` → подписанная GET-ссылка (1 час). Любой, кто видит вещь.
 - `avatar-url` — `POST { op: "put" }` → PUT-ссылка на `avatars/<uid>.jpg`; `POST { op: "get", key }` → GET-ссылка (1 час).
 - `support-ticket` — `POST { subject, message, device?, screenshots?: [base64 jpeg ≤3] }` → письмо в support@boxnumber.co через Resend (секрет `RESEND_API_KEY`), reply-to — email пользователя.
+- `waitlist` — подписка «Сообщить о запуске» с сайта (verify_jwt выключен; пускает только по заголовку `x-site-key` = `app_config.waitlist_site_key`). `join` / `confirm` / `unsubscribe`; письма — Resend, на языке страницы (10 языков). Таблица `waitlist` — миграция 0017; выгрузка для письма о запуске: `confirmed_at is not null and unsubscribed_at is null`.
 - `delete-account` — `POST {}` → удаляет файлы R2 аккаунта (`account_object_keys`) и пользователя Auth сервисным ключом (`SUPABASE_SERVICE_ROLE_KEY` есть в окружении функций). Каскад удаляет profiles/moves/places/items.
 
 Деплой без CLI: `SUPABASE_ACCESS_TOKEN=sbp_… functions/deploy.sh <slug…>` (Management API, multipart с `_shared/r2.ts`).
