@@ -1,6 +1,8 @@
 // POST { email, kind: "family" | "move" | "place", move_id?, place_id?, role?: "view"|"edit" }
 // Создаёт приглашение (строка с invited_email; привяжется при входе человека с этим email — claim_invites())
-// и шлёт письмо через Resend. Если у человека уже есть аккаунт — даём доступ сразу (user_id), письмо всё равно уходит.
+// и шлёт письмо через Resend. Если у человека уже есть аккаунт — строка с user_id; статус решает триггер invite_guard:
+// pending (ждёт «Принять» в приложении) или active, если приглашающий из той же семьи. Заблокирован — строка не создаётся,
+// мы об этом не узнаём (так задумано). Лимит 20 приглашений в сутки — ошибка invite_limit.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, userClient } from "../_shared/r2.ts";
 
@@ -31,13 +33,13 @@ Deno.serve(async (req) => {
   if (kind === "family") {
     const { data: fid } = await sb.rpc("my_family");
     if (existing) {
-      const { data: inFamily } = await admin.from("family_members").select("id").eq("user_id", existing.id).maybeSingle();
+      const { data: inFamily } = await admin.from("family_members").select("id").eq("user_id", existing.id).eq("family_id", fid).maybeSingle();
       if (inFamily) return json({ error: "in_family" }, 409);
     }
     // on_conflict не ловит повторные приглашения (user_id null) — проверяем email сами, иначе «Напомнить» плодил бы строки
     const { data: dup } = existing ? { data: null } : await sb.from("family_members").select("id").eq("family_id", fid).eq("invited_email", email).maybeSingle();
     if (!dup) {
-      const { error } = await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
+      const { error } = await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "family_id,user_id", ignoreDuplicates: true });
       err = error?.message ?? null;
     }
     what = "в семью";
@@ -51,9 +53,9 @@ Deno.serve(async (req) => {
     // в переезд → заодно в семью, как в ТЗ §9
     const { data: fid } = await sb.rpc("my_family");
     const { data: inFam } = existing
-      ? await admin.from("family_members").select("id").eq("user_id", existing.id).maybeSingle()
+      ? await admin.from("family_members").select("id").eq("user_id", existing.id).eq("family_id", fid).maybeSingle()
       : await sb.from("family_members").select("id").eq("family_id", fid).eq("invited_email", email).maybeSingle();
-    if (!inFam) await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "user_id", ignoreDuplicates: true });
+    if (!inFam) await sb.from("family_members").upsert({ family_id: fid, role: "edit", ...target }, { onConflict: "family_id,user_id", ignoreDuplicates: true });
   } else if (kind === "place" && typeof b.place_id === "string") {
     const { data: dupP } = existing ? { data: null } : await sb.from("place_access").select("id").eq("place_id", b.place_id).eq("invited_email", email).maybeSingle();
     if (!dupP) {
@@ -63,14 +65,14 @@ Deno.serve(async (req) => {
     what = "к месту";
     if (!err) await sb.from("places").update({ shared: true }).eq("id", b.place_id);
   } else return json({ error: "kind" }, 400);
-  if (err) { console.error(err); return json({ error: "insert_failed", detail: err }, 400); }
+  if (err) { console.error(err); return json({ error: err.includes("invite_limit") ? "invite_limit" : "insert_failed", detail: err }, 400); }
 
   const key = Deno.env.get("RESEND_API_KEY");
   if (key) {
     const html = `<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px;color:#16171A">
 <p style="font-size:22px;font-weight:800;margin:0 0 8px">Box <span style="color:#F0561D">Nº</span></p>
 <h1 style="font-size:20px;margin:24px 0 8px">${esc(inviter)} приглашает вас ${what}</h1>
-<p style="font-size:15px;line-height:1.5;color:#4F5157;margin:0 0 20px">Box Nº — коробки с номером маркером и фото всего, что внутри. ${existing ? "Откройте приложение — доступ уже есть." : "Установите приложение и войдите с этим адресом (" + esc(email) + ") — доступ появится сам."}</p>
+<p style="font-size:15px;line-height:1.5;color:#4F5157;margin:0 0 20px">Box Nº — коробки с номером маркером и фото всего, что внутри. ${existing ? "Откройте приложение — приглашение ждёт на главном экране, нажмите «Принять»." : "Установите приложение и войдите с этим адресом (" + esc(email) + ") — приглашение будет ждать на главном экране."}</p>
 <p style="margin:0 0 24px"><a href="https://boxnumber.co" style="display:inline-block;background:#16171A;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;padding:14px 22px;border-radius:14px">Открыть Box Nº</a></p>
 <p style="font-size:13px;line-height:1.5;color:#8A8C92;margin:0">Если вы не ждали приглашения, просто не обращайте внимания на это письмо.</p></div>`;
     const res = await fetch("https://api.resend.com/emails", {
