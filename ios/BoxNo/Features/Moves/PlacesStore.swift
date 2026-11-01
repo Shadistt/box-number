@@ -158,6 +158,19 @@ final class PlacesStore {
         replaceItem(updated)
     }
 
+    /// Количество и поля описи. `nil` в weight/value — очистить.
+    func updateInventory(_ id: UUID, quantity: Int? = nil, weightKg: Double?? = nil, value: Double?? = nil, currency: String?? = nil) async throws {
+        var patch: [String: AnyJSON] = [:]
+        if let quantity { patch["quantity"] = .integer(quantity) }
+        if let weightKg { patch["weight_kg"] = weightKg.map { .double($0) } ?? .null }
+        if let value { patch["value"] = value.map { .double($0) } ?? .null }
+        if let currency { patch["value_currency"] = currency.map { .string($0) } ?? .null }
+        guard !patch.isEmpty else { return }
+        let updated: Item = try await supabase.from("items").update(patch).eq("id", value: id.uuidString)
+            .select(Item.columns).single().execute().value
+        replaceItem(updated)
+    }
+
     /// Мягкое удаление (deleted_at). Локальное фото не трогаем, пока есть шанс «Отменить».
     @discardableResult
     func deleteItem(_ id: UUID) async throws -> Item? {

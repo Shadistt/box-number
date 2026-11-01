@@ -54,7 +54,7 @@ struct ItemCell: View {
                     }.padding(6)
                 }
             }
-            Text(highlight(item.title, query)).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+            Text(highlight(item.titleWithQuantity, query)).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                 .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
         }
     }
@@ -73,7 +73,7 @@ struct ItemRow: View {
         HStack(spacing: 12) {
             Button(action: onTap) { ItemThumb(item: item, size: 48) }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
-                Text(highlight(item.title, query)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                Text(highlight(item.titleWithQuantity, query)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
                     .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
                 if let t = item.takenAt { Text("Достали " + t.formatted(.dateTime.day().month())).font(.caption).foregroundStyle(Theme.muted) }
                 else if item.captionSource == .ai { Text("AI-подпись").font(.caption).foregroundStyle(Theme.muted) }
@@ -108,6 +108,7 @@ struct ItemCardView: View {
     @State private var editPhoto: EditablePhoto? = nil
     @State private var retake = false
     @State private var photoVersion = 0
+    @State private var quantity = 1
 
     private var place: Place? { store.place(item.placeId) }
     private var editable: Bool { place?.status == .open }
@@ -137,10 +138,17 @@ struct ItemCardView: View {
                         }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ПОДПИСЬ").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                        TextField("Что это", text: $title, axis: .vertical).font(.system(size: 18, weight: .semibold))
-                            .padding(14).background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
-                            .disabled(!editable)
-                            .onSubmit(save)
+                        // Название и количество в одной строке (паттерн Gojek / Careem, Mobbin): «Кружка  − 2 +».
+                        HStack(spacing: 8) {
+                            TextField("Что это", text: $title, axis: .vertical).font(.system(size: 18, weight: .semibold))
+                                .disabled(!editable)
+                                .onSubmit(save)
+                            QuantityStepper(value: $quantity, enabled: editable) { q in
+                                Task { try? await store.updateInventory(item.id, quantity: q) }
+                            }
+                        }
+                        .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 8).frame(minHeight: 54)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                         if editable && !suggestions.isEmpty {
                             ScrollView(.horizontal) {
                                 HStack(spacing: 8) {
@@ -155,6 +163,7 @@ struct ItemCardView: View {
                     if let place {
                         Text("Лежит в: \(place.kind.numberLabel) № \(place.number) · \(place.displayTitle)").font(.subheadline).foregroundStyle(Theme.muted)
                     }
+                    InventoryBlock(store: store, item: item, editable: editable)
                     if item.isEncrypted {
                         Label("В сейфе: название и фото зашифрованы на этом iPhone.", systemImage: "lock.fill").font(.caption).foregroundStyle(Theme.muted)
                     }
@@ -177,7 +186,7 @@ struct ItemCardView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Готово") { save(); dismiss() } }
             }
-            .onAppear { title = item.title }
+            .onAppear { title = item.title; quantity = item.quantity }
             .task {
                 // Сейф: распознавание выключено, фото не уходит в модель
                 if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
@@ -328,5 +337,112 @@ struct CameraPicker: UIViewControllerRepresentable {
             parent.onPick(info[.originalImage] as? UIImage); parent.dismiss()
         }
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.onPick(nil); parent.dismiss() }
+    }
+}
+
+
+/// «− 2 +» в строке названия: компактно, кнопки 32 pt, диапазон 1…999.
+struct QuantityStepper: View {
+    @Binding var value: Int
+    var enabled = true
+    let onChange: (Int) -> Void
+    var body: some View {
+        HStack(spacing: 2) {
+            step("minus", -1).disabled(!enabled || value <= 1)
+            Text("\(value)").font(.system(size: 17, weight: .bold)).monospacedDigit().frame(minWidth: 26)
+            step("plus", 1).disabled(!enabled || value >= 999)
+        }
+        .padding(3).background(Theme.bg, in: Capsule())
+        .accessibilityElement(children: .ignore).accessibilityLabel("Количество \(value)")
+        .accessibilityAdjustableAction { d in
+            switch d { case .increment: change(1); case .decrement: change(-1); default: break }
+        }
+    }
+    private func step(_ icon: String, _ d: Int) -> some View {
+        Button { change(d) } label: {
+            Image(systemName: icon).font(.system(size: 13, weight: .bold)).frame(width: 32, height: 32)
+                .background(Theme.card, in: Circle()).foregroundStyle(Theme.ink)
+        }.buttonStyle(.plain)
+    }
+    private func change(_ d: Int) {
+        let v = min(max(value + d, 1), 999); guard v != value else { return }
+        value = v; UISelectionFeedbackGenerator().selectionChanged(); onChange(v)
+    }
+}
+
+/// «Для описи» (ТЗ §16): свёрнутая строка с итогом справа; раскрывается в поля вес и оценочная стоимость.
+/// Стоимость — за штуку, в валюте устройства (валюта переезда — следующим шагом), хранится как ввели.
+struct InventoryBlock: View {
+    let store: PlacesStore
+    let item: Item
+    let editable: Bool
+    @State private var open = false
+    @State private var weight = ""
+    @State private var price = ""
+    @FocusState private var focus: Field?
+    enum Field { case weight, price }
+
+    private var currency: String { item.valueCurrency ?? Locale.current.currency?.identifier ?? "EUR" }
+    private var summary: String {
+        var parts: [String] = []
+        if let w = item.weightKg { parts.append(w.formatted(.number.precision(.fractionLength(0...2))) + " кг") }
+        if let v = item.value { parts.append((v * Double(item.quantity)).formatted(.currency(code: currency).precision(.fractionLength(0...2)))) }
+        return parts.isEmpty ? "не заполнено" : parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button { withAnimation(.snappy) { open.toggle() } } label: {
+                HStack {
+                    Label("Для описи", systemImage: "list.clipboard").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink)
+                    Spacer()
+                    Text(summary).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
+                    Image(systemName: "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
+                        .rotationEffect(.degrees(open ? 180 : 0))
+                }
+                .padding(.horizontal, 16).frame(minHeight: 52).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if open {
+                Divider().padding(.leading, 16)
+                field("Вес", unit: "кг", text: $weight, f: .weight)
+                Divider().padding(.leading, 16)
+                field(item.quantity > 1 ? "Стоимость за штуку" : "Оценочная стоимость", unit: currency, text: $price, f: .price)
+                Text("Необязательно. Видно только в описи для перевозчика, страховой или таможни.")
+                    .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16).padding(.bottom, 12)
+            }
+        }
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+        .onAppear {
+            weight = item.weightKg.map { $0.formatted(.number.precision(.fractionLength(0...2))) } ?? ""
+            price = item.value.map { $0.formatted(.number.precision(.fractionLength(0...2))) } ?? ""
+        }
+        .onChange(of: focus) { old, _ in if old != nil { save() } }
+        .onDisappear { save() }
+    }
+
+    private func field(_ label: String, unit: String, text: Binding<String>, f: Field) -> some View {
+        HStack(spacing: 10) {
+            Text(label).font(.system(size: 16)).foregroundStyle(Theme.ink)
+            Spacer()
+            TextField("—", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                .font(.system(size: 16, weight: .semibold)).focused($focus, equals: f).disabled(!editable)
+                .frame(maxWidth: 140)
+            Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
+        }
+        .padding(.horizontal, 16).frame(minHeight: 50)
+    }
+
+    /// Пустое поле — очистить; число с запятой или точкой.
+    private func parse(_ s: String) -> Double? {
+        let t = s.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")
+        return t.isEmpty ? nil : Double(t)
+    }
+    private func save() {
+        guard editable else { return }
+        let w = parse(weight), v = parse(price)
+        guard w != item.weightKg || v != item.value else { return }
+        Task { try? await store.updateInventory(item.id, weightKg: .some(w), value: .some(v), currency: .some(v == nil ? nil : currency)) }
     }
 }

@@ -203,7 +203,7 @@ struct PlacesView: View {
                             ForEach(its) { it in
                                 HStack(spacing: 10) {
                                     ItemThumb(item: it, size: 36)
-                                    Text(highlight(it.title, query)).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
+                                    Text(highlight(it.titleWithQuantity, query)).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
                                     Spacer()
                                 }
                             }

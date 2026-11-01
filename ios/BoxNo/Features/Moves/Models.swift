@@ -66,11 +66,20 @@ struct Item: Codable, Identifiable, Hashable {
     var takenAt: Date?
     var position: Int
     var createdAt: Date
-    enum CodingKeys: String, CodingKey { case id, photo, thumb, position
+    /// Количество (§15): «Кружка ×2» — одна вещь.
+    var quantity: Int = 1
+    /// «Для описи» (§16): необязательные.
+    var weightKg: Double?
+    var value: Double?
+    var valueCurrency: String?
+    enum CodingKeys: String, CodingKey { case id, photo, thumb, position, quantity, value
         case rawTitle = "title", titleEnc = "title_enc"
-        case placeId = "place_id", captionSource = "caption_source", takenAt = "taken_at", createdAt = "created_at" }
+        case placeId = "place_id", captionSource = "caption_source", takenAt = "taken_at", createdAt = "created_at"
+        case weightKg = "weight_kg", valueCurrency = "value_currency" }
 
-    static let columns = "id,place_id,title,title_enc,caption_source,photo,thumb,taken_at,position,created_at"
+    static let columns = "id,place_id,title,title_enc,caption_source,photo,thumb,taken_at,position,created_at,quantity,weight_kg,value,value_currency"
+    /// «Кружка ×2» — для сетки, списка и поиска.
+    var titleWithQuantity: String { quantity > 1 ? "\(title) ×\(quantity)" : title }
     var isTaken: Bool { takenAt != nil }
     /// Вещь из сейфа: фото и название зашифрованы.
     var isEncrypted: Bool { titleEnc != nil }
