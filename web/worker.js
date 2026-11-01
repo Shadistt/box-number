@@ -16,6 +16,8 @@ const ORIGIN = "https://boxnumber.co";
 
 const LANGS = ["ru", "uk", "en", "de", "fr", "es", "it", "nl", "pl", "pt"];
 const NATIVE = { ru: "Русский", uk: "Українська", en: "English", de: "Deutsch", fr: "Français", es: "Español", it: "Italiano", nl: "Nederlands", pl: "Polski", pt: "Português" };
+// Порядок в переключателе — по алфавиту названий (латиница, затем кириллица).
+const SWITCH_ORDER = ["de", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "uk"];
 // Страна → язык: только когда браузер не прислал Accept-Language (боты, редкие клиенты).
 const COUNTRY_LANG = {
   UA: "uk", RU: "ru", BY: "ru", KZ: "ru", KG: "ru", MD: "ru",
@@ -473,7 +475,7 @@ function page(lang, h1, body, opts = {}) {
     ? LANGS.map((l) => `<link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}/">`).join("") +
       `<link rel="alternate" hreflang="x-default" href="${ORIGIN}/"><link rel="canonical" href="${ORIGIN}/${lang}/">`
     : "";
-  const switcher = LANGS.map((l) => l === lang
+  const switcher = SWITCH_ORDER.map((l) => l === lang
     ? `<span aria-current="true" lang="${l}">${NATIVE[l]}</span>`
     : `<a href="/${l}/?l=1" lang="${l}" hreflang="${l}">${NATIVE[l]}</a>`).join("");
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -501,8 +503,8 @@ p{font-size:16px;line-height:1.45;margin:0 0 14px}.muted{color:var(--muted)}.sma
 .note{font-size:15px;font-weight:600;border-radius:12px;padding:12px 14px;margin:14px 0 0}
 .note.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .note.err{color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)}
-nav.langs{margin:40px 0 0;padding:16px 0 0;border-top:1px solid var(--line);font-size:14px;line-height:2;color:var(--muted)}
-nav.langs a,nav.langs span{margin-right:12px;white-space:nowrap}nav.langs a{color:var(--muted)}nav.langs span{color:var(--ink);font-weight:700}
+nav.langs{display:flex;flex-wrap:wrap;gap:6px 16px;margin:40px 0 0;padding:16px 0 0;border-top:1px solid var(--line);font-size:14px;line-height:1.6;color:var(--muted)}
+nav.langs a,nav.langs span{white-space:nowrap;padding:4px 0}nav.langs a{color:var(--muted)}nav.langs span{color:var(--ink);font-weight:700}
 </style></head><body><main>
 <p class="logo"><a href="/${lang}/">Box <span>Nº</span></a></p>
 <h1>${esc(h1)}</h1>
