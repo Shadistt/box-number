@@ -123,10 +123,12 @@ struct CameraView: View {
             withAnimation(.easeIn(duration: 0.15)) { flash = false }
             guard let image = UIImage(data: data) else { return }
             let id = UUID()
-            toast = Toast(text: "Подписываем…", undo: false)
-            guard let saved = PhotoStore.save(image, for: id) else { return }
-            let caption = await Captioner.caption(image)
-            try await store.addItem(to: placeId, title: caption, source: .ai, id: id)
+            // Сейф: фото не покидает устройство в открытом виде — подписи не распознаём, байты шифруем (ТЗ §10а).
+            let safe = store.isSafe(placeId)
+            toast = Toast(text: safe ? "Сохраняем…" : "Подписываем…", undo: false)
+            guard let saved = PhotoStore.save(image, for: id, encrypted: safe) else { return }
+            let caption = safe ? "Без названия" : await Captioner.caption(image)
+            try await store.addItem(to: placeId, title: caption, source: safe ? .user : .ai, id: id)
             shots += 1; lastItem = id
             withAnimation(.snappy) { lastThumb = UIImage(data: saved.thumb) }
             toast = Toast(text: caption, undo: true)

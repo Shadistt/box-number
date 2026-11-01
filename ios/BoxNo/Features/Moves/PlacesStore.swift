@@ -122,15 +122,19 @@ final class PlacesStore {
 
     // MARK: вещи
 
+    /// Сейф: название уходит в title_enc зашифрованным, title пустой (ТЗ §10а).
+    func isSafe(_ placeId: UUID) -> Bool { place(placeId)?.kind.isSafe == true }
+
     @discardableResult
     func addItem(to placeId: UUID, title: String, source: CaptionSource, id: UUID = UUID()) async throws -> Item {
         let user = try await supabase.auth.session.user
         let position = (items[placeId]?.map(\.position).max() ?? -1) + 1
-        let row: [String: AnyJSON] = [
+        var row: [String: AnyJSON] = [
             "id": .string(id.uuidString), "place_id": .string(placeId.uuidString), "title": .string(title),
             "caption_source": .string(source.rawValue), "position": .integer(position),
             "created_by": .string(user.id.uuidString)
         ]
+        if isSafe(placeId) { row["title"] = .string(""); row["title_enc"] = .string(try SafeSession.shared.encrypt(title)) }
         let item: Item = try await supabase.from("items").insert(row).select(Item.columns).single().execute().value
         items[placeId, default: []].append(item)
         return item
@@ -139,7 +143,10 @@ final class PlacesStore {
     func updateItem(_ id: UUID, title: String? = nil, source: CaptionSource? = nil,
                     photo: String? = nil, thumb: String? = nil, taken: Bool? = nil, placeId: UUID? = nil) async throws {
         var patch: [String: AnyJSON] = [:]
-        if let title { patch["title"] = .string(title) }
+        if let title {
+            let encrypted = items.values.joined().first { $0.id == id }?.isEncrypted ?? false
+            if encrypted { patch["title_enc"] = .string(try SafeSession.shared.encrypt(title)) } else { patch["title"] = .string(title) }
+        }
         if let source { patch["caption_source"] = .string(source.rawValue) }
         if let photo { patch["photo"] = .string(photo) }
         if let thumb { patch["thumb"] = .string(thumb) }

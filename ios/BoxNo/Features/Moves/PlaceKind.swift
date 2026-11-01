@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Типы мест — как в enum place_kind базы и в макете TypeIcons.
 enum PlaceKind: String, Codable, CaseIterable, Identifiable {
-    case box, folder, container, suitcase, bag, wardrobe, large, custom
+    case box, folder, container, suitcase, bag, wardrobe, large, safe, custom
     var id: String { rawValue }
 
     var title: String {
@@ -14,6 +14,7 @@ enum PlaceKind: String, Codable, CaseIterable, Identifiable {
         case .bag: "Мешок или пакет"
         case .wardrobe: "Кофр для одежды"
         case .large: "Крупный предмет"
+        case .safe: "Сейф"
         case .custom: "Свой вариант"
         }
     }
@@ -39,10 +40,14 @@ enum PlaceKind: String, Codable, CaseIterable, Identifiable {
         case .bag: "bag"
         case .wardrobe: "hanger"
         case .large: "sofa"
+        case .safe: "lock.fill"
         case .custom: "pencil.and.outline"
         }
     }
 
     /// Чем подписываем новое место: «Коробка № 3», «Папка № 3»
     var numberLabel: String { self == .custom ? "Место" : short }
+
+    /// Сейф: содержимое зашифровано на устройстве, подписи только вручную, делиться нельзя (ТЗ §10а).
+    var isSafe: Bool { self == .safe }
 }

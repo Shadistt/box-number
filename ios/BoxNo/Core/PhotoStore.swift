@@ -19,11 +19,19 @@ enum PhotoStore {
         dir.appendingPathComponent(id.uuidString + (thumb ? "_t.jpg" : ".jpg"))
     }
 
+    /// Сбросить расшифрованные картинки из памяти (сейф закрыли).
+    static func dropMemoryCache() { cache.removeAllObjects() }
+
     /// Сжимает и сохраняет обе версии. Оригинал не хранится.
+    /// `encrypted` — вещь сейфа: на диск и в R2 уходят зашифрованные байты (AES-GCM, ключ сейфа), не JPEG.
     @discardableResult
-    static func save(_ image: UIImage, for id: UUID) -> (photo: Data, thumb: Data)? {
-        guard let photo = image.resized(maxSide: 1600).jpegData(compressionQuality: 0.82),
-              let thumb = image.resized(maxSide: 320).jpegData(compressionQuality: 0.7) else { return nil }
+    static func save(_ image: UIImage, for id: UUID, encrypted: Bool = false) -> (photo: Data, thumb: Data)? {
+        guard var photo = image.resized(maxSide: 1600).jpegData(compressionQuality: 0.82),
+              var thumb = image.resized(maxSide: 320).jpegData(compressionQuality: 0.7) else { return nil }
+        if encrypted {
+            guard let p = try? SafeSession.shared.encrypt(photo), let t = try? SafeSession.shared.encrypt(thumb) else { return nil }
+            photo = p; thumb = t
+        }
         try? photo.write(to: localURL(id, thumb: false), options: .atomic)
         try? thumb.write(to: localURL(id, thumb: true), options: .atomic)
         cache.removeObject(forKey: id.uuidString as NSString)
@@ -39,7 +47,7 @@ enum PhotoStore {
 
     /// Локальный файл → иначе качаем по подписанной ссылке и кладём рядом.
     static func image(for item: Item, thumb: Bool) async -> UIImage? {
-        await image(localId: item.id, remoteKey: thumb ? item.thumb : item.photo, thumb: thumb)
+        await image(localId: item.id, remoteKey: thumb ? item.thumb : item.photo, thumb: thumb, encrypted: item.isEncrypted)
     }
 
     /// Фото самого места (коробки): ключ places/<id>/photo.jpg в places.number_photo, превью — рядом.
@@ -48,19 +56,27 @@ enum PhotoStore {
         return await image(localId: place.id, remoteKey: key, thumb: thumb)
     }
 
-    static func image(localId id: UUID, remoteKey: String?, thumb: Bool) async -> UIImage? {
+    static func image(localId id: UUID, remoteKey: String?, thumb: Bool, encrypted: Bool = false) async -> UIImage? {
         let key = (id.uuidString + (thumb ? "_t" : "")) as NSString
         if let img = cache.object(forKey: key) { return img }
+        // Сейф закрыт — картинку не показываем (и не кладём в кеш)
+        if encrypted, !(await SafeSession.shared.isOpen) { return nil }
         let url = localURL(id, thumb: thumb)
-        if let img = UIImage(contentsOfFile: url.path) { cache.setObject(img, forKey: key); return img }
+        if let data = try? Data(contentsOf: url), let img = await decode(data, encrypted: encrypted) { cache.setObject(img, forKey: key); return img }
         guard let remoteKey else { return nil }
         do {
             let ticket: ViewTicket = try await supabase.functions.invoke("photo-view-url", options: .init(body: ["key": remoteKey]))
             let (data, _) = try await URLSession.shared.data(from: URL(string: ticket.url)!)
             try? data.write(to: url, options: .atomic)
-            if let img = UIImage(data: data) { cache.setObject(img, forKey: key); return img }
+            if let img = await decode(data, encrypted: encrypted) { cache.setObject(img, forKey: key); return img }
         } catch { print("photo-view-url:", error) }
         return nil
+    }
+
+    private static func decode(_ data: Data, encrypted: Bool) async -> UIImage? {
+        guard encrypted else { return UIImage(data: data) }
+        guard let plain = await SafeSession.shared.decrypt(data) else { return nil }
+        return UIImage(data: plain)
     }
 
     /// Загрузка в R2. Если не вышло (нет сети, функция не настроена) — фото остаётся локально, повторим позже.

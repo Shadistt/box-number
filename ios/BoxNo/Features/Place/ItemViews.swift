@@ -155,9 +155,15 @@ struct ItemCardView: View {
                     if let place {
                         Text("Лежит в: \(place.kind.numberLabel) № \(place.number) · \(place.displayTitle)").font(.subheadline).foregroundStyle(Theme.muted)
                     }
+                    if item.isEncrypted {
+                        Label("В сейфе: название и фото зашифрованы на этом iPhone.", systemImage: "lock.fill").font(.caption).foregroundStyle(Theme.muted)
+                    }
                     if editable {
-                        Button { showMove = true } label: { Label("Переложить в другое место", systemImage: "arrow.right.square") }
-                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
+                        // Из сейфа и в сейф вещи не перекладываются: ключ личный, фото пришлось бы расшифровывать.
+                        if !item.isEncrypted {
+                            Button { showMove = true } label: { Label("Переложить в другое место", systemImage: "arrow.right.square") }
+                                .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
+                        }
                         Button(role: .destructive) { Task { await deleteNow() } } label: { Label("Удалить вещь", systemImage: "trash") }
                             .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
                     } else {
@@ -173,7 +179,8 @@ struct ItemCardView: View {
             }
             .onAppear { title = item.title }
             .task {
-                if editable, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
+                // Сейф: распознавание выключено, фото не уходит в модель
+                if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
             }
             // Во весь экран, а не sheet поверх sheet'а — без «стопки окон» сзади.
             .fullScreenCover(isPresented: $showMove) {
@@ -198,10 +205,10 @@ struct ItemCardView: View {
 
     /// Новое фото под тем же ключом: локально сразу, в R2 — следом; подсказки подписи пересчитываем.
     private func replacePhoto(_ img: UIImage) async {
-        guard let data = PhotoStore.save(img, for: item.id) else { return }
+        guard let data = PhotoStore.save(img, for: item.id, encrypted: item.isEncrypted) else { return }
         photoVersion += 1
         await PhotoStore.upload(item.id, photo: data.photo, thumb: data.thumb, store: store)
-        suggestions = await Captioner.candidates(img)
+        if !item.isEncrypted { suggestions = await Captioner.candidates(img) }
     }
 
     private func save() {
@@ -227,7 +234,7 @@ struct MoveItemView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(Array(store.places.enumerated()), id: \.element.id) { i, p in
+                    ForEach(Array(store.places.filter { !$0.kind.isSafe }.enumerated()), id: \.element.id) { i, p in
                         let open = p.status == .open
                         Button { if open { selected = p.id } } label: {
                             HStack(spacing: 12) {

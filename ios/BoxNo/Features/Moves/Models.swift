@@ -56,18 +56,29 @@ enum CaptionSource: String, Codable { case ai, user }
 struct Item: Codable, Identifiable, Hashable {
     var id: UUID
     var placeId: UUID
-    var title: String
+    /// Колонка title. У вещей сейфа пуста — название лежит в titleEnc.
+    var rawTitle: String
+    /// Шифртекст названия (сейф, ТЗ §10а); nil — обычная вещь.
+    var titleEnc: String?
     var captionSource: CaptionSource
     var photo: String?
     var thumb: String?
     var takenAt: Date?
     var position: Int
     var createdAt: Date
-    enum CodingKeys: String, CodingKey { case id, title, photo, thumb, position
+    enum CodingKeys: String, CodingKey { case id, photo, thumb, position
+        case rawTitle = "title", titleEnc = "title_enc"
         case placeId = "place_id", captionSource = "caption_source", takenAt = "taken_at", createdAt = "created_at" }
 
-    static let columns = "id,place_id,title,caption_source,photo,thumb,taken_at,position,created_at"
+    static let columns = "id,place_id,title,title_enc,caption_source,photo,thumb,taken_at,position,created_at"
     var isTaken: Bool { takenAt != nil }
+    /// Вещь из сейфа: фото и название зашифрованы.
+    var isEncrypted: Bool { titleEnc != nil }
+    /// Название для показа: у сейфа — расшифровка (пока сейф открыт), иначе пусто.
+    var title: String {
+        guard let titleEnc else { return rawTitle }
+        return SafeSession.shared.decrypt(titleEnc) ?? ""
+    }
 }
 
 extension Move {

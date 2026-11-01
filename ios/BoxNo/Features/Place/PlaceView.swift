@@ -36,6 +36,11 @@ struct PlaceView: View {
     @State private var placePhotoViewer = false
     @FocusState private var titleFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
+    // Сейф (ТЗ §10а): пока ключа нет — вместо вещей «Сейф закрыт»; делиться и фото места нельзя.
+    @State private var safe = SafeSession.shared
+    @State private var showUnlock = false
+    private var isSafe: Bool { place?.kind.isSafe == true }
+    private var safeLocked: Bool { isSafe && !safe.isOpen }
 
     enum Mode: String, CaseIterable { case photos = "Фото", list = "Список" }
     enum LockDialog: Identifiable { case pack, packed, unpacking, done; var id: Int { hashValue } }
@@ -60,7 +65,7 @@ struct PlaceView: View {
                     withAnimation(.snappy) { showSearch.toggle() }
                     if showSearch { searchFocused = true } else { query = "" }
                 } label: { Image(systemName: showSearch ? "magnifyingglass.circle.fill" : "magnifyingglass") }
-                Button { showShare = true } label: { Image(systemName: "square.and.arrow.up") }
+                if !isSafe { Button { showShare = true } label: { Image(systemName: "square.and.arrow.up") } }
                 Menu {
                     Button { showEdit = true } label: { Label("Изменить место", systemImage: "pencil") }
                     Button { showDest = true } label: { Label("Куда едет", systemImage: "mappin.and.ellipse") }
@@ -169,9 +174,10 @@ struct PlaceView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 14) {
                     Button {
-                        // Есть фото места — открываем крупно; нет — предлагаем снять.
+                        // Есть фото места — открываем крупно; нет — предлагаем снять. У сейфа фото места нет.
+                        if isSafe { return }
                         if place.numberPhoto != nil { placePhotoViewer = true } else if editable { placePhotoMenu = true }
-                    } label: { BoxTileView(place: place, size: 112, cameraHint: editable) }.buttonStyle(.plain)
+                    } label: { BoxTileView(place: place, size: 112, cameraHint: editable && !isSafe) }.buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 6) {
                         TextField("Без названия", text: $title)   // тип и так в чипах ниже; «Чемодан или сумка без названия» не влезало
                             .font(.system(size: 22, weight: .heavy)).lineLimit(1)
@@ -199,6 +205,9 @@ struct PlaceView: View {
                     Color.clear.preference(key: BarTopKey.self, value: g.frame(in: .named("placeScreen")).minY)
                 })
 
+                if safeLocked {
+                    SafeLockedView { withAnimation(.snappy) { showUnlock = true } }
+                } else {
                 if showSearch {
                     SearchField(text: $query, placeholder: "Найти вещь в этом месте", focused: $searchFocused)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -234,8 +243,9 @@ struct PlaceView: View {
                     Text("Ничего не нашлось").font(.subheadline).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity).padding(.top, 24)
                 } else if allItems.isEmpty {
-                    Text(editable ? "Снимите первую вещь — подпись появится сама." : "Вещей нет.")
+                    Text(editable ? (isSafe ? "Снимите первую вещь — название впишете сами: в сейфе подписи не распознаются." : "Снимите первую вещь — подпись появится сама.") : "Вещей нет.")
                         .font(.subheadline).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.top, 8)
+                }
                 }
                 Color.clear.frame(height: 40)
             }
@@ -245,6 +255,13 @@ struct PlaceView: View {
         .coordinateSpace(name: "placeScreen")
         .onPreferenceChange(BarTopKey.self) { barTop = $0 }
         .overlay { if showPackCard { packCard(place) } }
+        .overlay {
+            if showUnlock {
+                BottomCard(isPresented: $showUnlock) {
+                    SafeUnlockCard(close: { withAnimation(.snappy) { showUnlock = false } }, onOpened: { withAnimation(.snappy) { showUnlock = false } })
+                }
+            }
+        }
     }
 
     /// Карточка «Запаковать?»: нижний лист по высоте содержимого, остальное затемнено.

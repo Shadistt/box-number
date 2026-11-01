@@ -6,6 +6,7 @@ struct BoxNoApp: App {
     @State private var session = SessionStore()
     @AppStorage(AppTheme.key) private var theme: String = AppTheme.light.rawValue   // по умолчанию светлая, пока тёмную не отсмотрели
 
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -19,6 +20,8 @@ struct BoxNoApp: App {
                 }
                 .tint(Theme.ink)
                 .task { session.start() }
+                // Сейф закрывается, как только приложение уходит с экрана (ТЗ §10а).
+                .onChange(of: scenePhase) { _, p in if p != .active { SafeSession.shared.lock() } }
                 .onOpenURL { url in
                     // Возврат из Google Sign-In или из письма со ссылкой.
                     if GIDSignIn.sharedInstance.handle(url) { return }

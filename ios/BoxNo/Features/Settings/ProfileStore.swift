@@ -14,12 +14,17 @@ struct Profile: Codable, Hashable {
     var twoFactor: Bool
     var twoFactorVerifiedAt: Date?
     var hasPassword: Bool = false
+    // «Сейф»: соль, число итераций и проверочная строка (ТЗ §10а); пароль нигде не хранится.
+    var safeSalt: String?
+    var safeVerifier: String?
+    var safeKdfIter: Int?
     enum CodingKeys: String, CodingKey {
         case id, email, avatar, photo, locale
         case firstName = "first_name", lastName = "last_name"
         case twoFactor = "two_factor", twoFactorVerifiedAt = "two_factor_verified_at", hasPassword = "has_password"
+        case safeSalt = "safe_salt", safeVerifier = "safe_verifier", safeKdfIter = "safe_kdf_iter"
     }
-    static let columns = "id,first_name,last_name,email,avatar,photo,locale,two_factor,two_factor_verified_at,has_password"
+    static let columns = "id,first_name,last_name,email,avatar,photo,locale,two_factor,two_factor_verified_at,has_password,safe_salt,safe_verifier,safe_kdf_iter"
 
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
     var hasCustomAvatar: Bool { avatar == "photo" && photo != nil }
@@ -166,6 +171,14 @@ final class ProfileStore {
         do { try await supabase.from("profiles").update(["two_factor_verified_at": Date()]).eq("id", value: p.id).execute() } catch { print("2fa verified:", error) }
     }
 
+    /// Параметры ключа сейфа (задаются один раз при первом сейфе).
+    func setSafe(salt: String, verifier: String, iterations: Int) async throws {
+        guard var p = profile else { throw SafeSession.SafeError.notSetUp }
+        struct Patch: Encodable { var safe_salt: String; var safe_verifier: String; var safe_kdf_iter: Int }
+        try await supabase.from("profiles").update(Patch(safe_salt: salt, safe_verifier: verifier, safe_kdf_iter: iterations)).eq("id", value: p.id).execute()
+        p.safeSalt = salt; p.safeVerifier = verifier; p.safeKdfIter = iterations; profile = p
+    }
+
     /// Email сменили в Auth — продублировать в профиль.
     func setEmail(_ email: String) async {
         guard var p = profile else { return }
@@ -174,6 +187,7 @@ final class ProfileStore {
     }
 
     func clear() {
+        SafeSession.shared.lock()
         profile = nil; usage = nil; identities = []; avatarImage = nil; loaded = false
         try? FileManager.default.removeItem(at: Self.avatarFile)
     }

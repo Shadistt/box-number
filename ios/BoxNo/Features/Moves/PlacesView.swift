@@ -7,6 +7,8 @@ struct PlacesView: View {
     @State private var tab: Tab = .places
     @State private var filter: PlaceKind? = nil
     @State private var showTypePicker = false
+    @State private var safeCard: SafeCard? = nil      // сейф: задать пароль / открыть перед созданием (ТЗ §10а)
+    enum SafeCard { case setup, unlock }
     @State private var open: PlaceRef? = nil
     @State private var creating = false
     @FocusState private var searching: Bool
@@ -26,6 +28,8 @@ struct PlacesView: View {
     private var filtered: [Place] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         return store.places.filter { p in
+            // Закрытый сейф в «Вещах» не показываем — внутри нечего показать
+            (tab == .places || !p.kind.isSafe || SafeSession.shared.isOpen) &&
             (filter == nil || p.kind == filter) &&
             (q.isEmpty || p.title.lowercased().contains(q) || p.number.lowercased().contains(q)
              || store.items(of: p.id).contains { $0.title.lowercased().contains(q) })
@@ -113,6 +117,16 @@ struct PlacesView: View {
         }
         .navigationDestination(item: $open) { ref in PlaceView(store: store, placeId: ref.id) }
         .overlay { if creating { ProgressView().controlSize(.large) } }
+        .overlay {
+            if let card = safeCard {
+                BottomCard(isPresented: .init(get: { safeCard != nil }, set: { if !$0 { safeCard = nil } })) {
+                    switch card {
+                    case .setup: SafeSetupCard(close: { withAnimation(.snappy) { safeCard = nil } }, onDone: { safeCard = nil; Task { await create(.safe, nil, checked: true) } })
+                    case .unlock: SafeUnlockCard(close: { withAnimation(.snappy) { safeCard = nil } }, onOpened: { safeCard = nil; Task { await create(.safe, nil, checked: true) } })
+                    }
+                }
+            }
+        }
         .alert("Не получилось", isPresented: .init(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("Ок") {}
         } message: { Text(store.error ?? "") }
@@ -201,7 +215,12 @@ struct PlacesView: View {
         }
     }
 
-    private func create(_ kind: PlaceKind, _ custom: String?) async {
+    private func create(_ kind: PlaceKind, _ custom: String?, checked: Bool = false) async {
+        // Сейф создаётся только с ключом в памяти: сначала пароль (первый раз — задать), потом место.
+        if kind.isSafe, !checked, !SafeSession.shared.isOpen {
+            withAnimation(.snappy) { safeCard = SafeSession.shared.needsSetup ? .setup : .unlock }
+            return
+        }
         creating = true; defer { creating = false }
         do {
             let p = try await store.createPlace(kind: kind, customKind: custom)
