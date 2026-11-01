@@ -34,24 +34,59 @@ final class SafeSession: @unchecked Sendable {
     /// Пароль ещё не задан (в профиле нет соли).
     @MainActor var needsSetup: Bool { ProfileStore.shared.profile?.safeSalt == nil }
 
-    /// Первый сейф: соль + ключ + проверочная строка → профиль. Пароль не хранится нигде.
+    /// Первый сейф. Содержимое шифруется случайным мастер-ключом; из пароля выводится ключ-обёртка (PBKDF2),
+    /// которым мастер-ключ «заворачивается» и кладётся в профиль. Так смена пароля не требует перешифровки.
+    /// Проверочная строка зашифрована мастер-ключом. Пароль не хранится нигде.
     @MainActor func setup(password: String) async throws {
-        var salt = Data(count: 16); _ = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
-        let k = try await Self.derive(password: password, salt: salt, iterations: Self.iterations)
-        let verifier = try AES.GCM.seal(Data(Self.verifierText.utf8), using: k).combined!
-        try await ProfileStore.shared.setSafe(salt: salt.base64EncodedString(), verifier: verifier.base64EncodedString(), iterations: Self.iterations)
-        key = k
+        let salt = Self.randomBytes(16)
+        let master = SymmetricKey(size: .bits256)
+        let kek = try await Self.derive(password: password, salt: salt, iterations: Self.iterations)
+        let wrapped = try AES.GCM.seal(master.withUnsafeBytes { Data($0) }, using: kek).combined!
+        let verifier = try AES.GCM.seal(Data(Self.verifierText.utf8), using: master).combined!
+        try await ProfileStore.shared.setSafe(salt: salt.base64EncodedString(), verifier: verifier.base64EncodedString(),
+                                              iterations: Self.iterations, wrappedKey: wrapped.base64EncodedString())
+        key = master
+    }
+
+    /// Мастер-ключ по паролю: разворачиваем обёртку (или, для сейфов без обёртки, мастер = ключ из пароля)
+    /// и сверяем проверочную строку. nil — пароль не подошёл.
+    @MainActor private func unlockMaster(password: String) async throws -> SymmetricKey? {
+        guard let p = ProfileStore.shared.profile, let saltB64 = p.safeSalt, let salt = Data(base64Encoded: saltB64),
+              let verB64 = p.safeVerifier, let verifier = Data(base64Encoded: verB64) else { throw SafeError.notSetUp }
+        let kek = try await Self.derive(password: password, salt: salt, iterations: p.safeKdfIter ?? Self.iterations)
+        var master = kek
+        if let wB64 = p.safeWrappedKey, let wrapped = Data(base64Encoded: wB64) {
+            guard let box = try? AES.GCM.SealedBox(combined: wrapped), let raw = try? AES.GCM.open(box, using: kek) else { return nil }
+            master = SymmetricKey(data: raw)
+        }
+        guard let box = try? AES.GCM.SealedBox(combined: verifier), let plain = try? AES.GCM.open(box, using: master),
+              String(decoding: plain, as: UTF8.self) == Self.verifierText else { return nil }
+        return master
     }
 
     /// Открыть сейф паролем. false — пароль не подошёл.
     @MainActor func open(password: String) async throws -> Bool {
-        guard let p = ProfileStore.shared.profile, let saltB64 = p.safeSalt, let salt = Data(base64Encoded: saltB64),
-              let verB64 = p.safeVerifier, let verifier = Data(base64Encoded: verB64) else { throw SafeError.notSetUp }
-        let k = try await Self.derive(password: password, salt: salt, iterations: p.safeKdfIter ?? Self.iterations)
-        guard let box = try? AES.GCM.SealedBox(combined: verifier), let plain = try? AES.GCM.open(box, using: k),
-              String(decoding: plain, as: UTF8.self) == Self.verifierText else { return false }
-        key = k
+        guard let master = try await unlockMaster(password: password) else { return false }
+        key = master
         return true
+    }
+
+    /// Сменить пароль: проверяем старый, заворачиваем тот же мастер-ключ новым — содержимое и Face ID не трогаются.
+    /// false — старый пароль не подошёл.
+    @MainActor func changePassword(old: String, new: String) async throws -> Bool {
+        guard let master = try await unlockMaster(password: old) else { return false }
+        let salt = Self.randomBytes(16)
+        let kek = try await Self.derive(password: new, salt: salt, iterations: Self.iterations)
+        let wrapped = try AES.GCM.seal(master.withUnsafeBytes { Data($0) }, using: kek).combined!
+        let verifier = try AES.GCM.seal(Data(Self.verifierText.utf8), using: master).combined!
+        try await ProfileStore.shared.setSafe(salt: salt.base64EncodedString(), verifier: verifier.base64EncodedString(),
+                                              iterations: Self.iterations, wrappedKey: wrapped.base64EncodedString())
+        key = master
+        return true
+    }
+
+    private static func randomBytes(_ n: Int) -> Data {
+        var d = Data(count: n); _ = d.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, n, $0.baseAddress!) }; return d
     }
 
     /// Закрыть: ключ стирается из памяти, расшифрованные картинки — из кеша.

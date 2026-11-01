@@ -20,6 +20,9 @@ struct AccountView: View {
     @State private var passwordCard = false
     @State private var twoFACard = false
     @State private var unlinkProvider: String?
+    @State private var safe = SafeSession.shared
+    @State private var safePasswordCard = false
+    @State private var safeUnlockForBiometry = false
     @State private var error: String?
     @State private var busy = false
     @State private var appleLinker = AppleLinker()
@@ -55,6 +58,29 @@ struct AccountView: View {
                             .labelsHidden().tint(Theme.accent)
                     }
                     .padding(16)
+                    // Сейф (ТЗ §10а): пароль и Face ID — только когда сейф уже заведён.
+                    if store.profile?.safeSalt != nil {
+                        Divider().padding(.leading, 16)
+                        Button { withAnimation(.snappy) { safePasswordCard = true } } label: {
+                            LabeledRow(label: "Пароль сейфа", value: "••••••••", muted: false)
+                        }
+                        if safe.biometryAvailable {
+                            Divider().padding(.leading, 16)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Сейф по Face ID").font(.system(size: 17, weight: .semibold))
+                                    Text("Ключ хранится только на этом iPhone").font(.footnote).foregroundStyle(Theme.muted)
+                                }
+                                Spacer()
+                                Toggle("", isOn: Binding(get: { safe.biometryEnabled }, set: { on in
+                                    if !on { safe.disableBiometry() }
+                                    else if safe.isOpen { try? safe.enableBiometry() }
+                                    else { withAnimation(.snappy) { safeUnlockForBiometry = true } }   // ключ нужен в памяти — сначала пароль
+                                })).labelsHidden().tint(Theme.accent)
+                            }
+                            .padding(16)
+                        }
+                    }
                 }
 
                 SectionTitle("Способы входа")
@@ -108,6 +134,15 @@ struct AccountView: View {
         // Карточка пароля сразу высокая: иначе при появлении клавиатуры она подрастала рывком.
         .overlay { if passwordCard { BottomCard(isPresented: $passwordCard, tall: true) { PasswordCard(close: { withAnimation(.snappy) { passwordCard = false } }) } } }
         .overlay { if twoFACard { BottomCard(isPresented: $twoFACard) { TwoFactorCard(close: { withAnimation(.snappy) { twoFACard = false } }) } } }
+        .overlay { if safePasswordCard { BottomCard(isPresented: $safePasswordCard, tall: true) { SafePasswordChangeCard(close: { withAnimation(.snappy) { safePasswordCard = false } }) } } }
+        .overlay {
+            if safeUnlockForBiometry {
+                BottomCard(isPresented: $safeUnlockForBiometry) {
+                    SafeUnlockCard(close: { withAnimation(.snappy) { safeUnlockForBiometry = false } },
+                                   onOpened: { try? safe.enableBiometry(); withAnimation(.snappy) { safeUnlockForBiometry = false } })
+                }
+            }
+        }
         // Отвязка Apple/Google — тоже нижней карточкой (системный диалог на iOS 26 всплывал пузырём у кнопки).
         .overlay {
             if let p = unlinkProvider {

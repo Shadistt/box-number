@@ -113,3 +113,56 @@ struct SafeLockedView: View {
         .frame(maxWidth: .infinity).padding(.top, 40)
     }
 }
+
+// MARK: - Сменить пароль сейфа (нижняя карточка, Настройки → Аккаунт)
+
+struct SafePasswordChangeCard: View {
+    let close: () -> Void
+    @State private var safe = SafeSession.shared
+    @State private var current = ""
+    @State private var new = ""
+    @State private var repeatNew = ""
+    @State private var showNew = false
+    @State private var busy = false
+    @State private var error: String?
+    @State private var done = false
+
+    private var valid: Bool { !current.isEmpty && new.count >= 6 && new == repeatNew && new != current }
+
+    var body: some View {
+        if done {
+            Label("Пароль сейфа изменён", systemImage: "checkmark.circle.fill").font(.system(size: 22, weight: .heavy)).foregroundStyle(Theme.ink)
+            Text("Содержимое сейфа и Face ID остались как были.").font(.subheadline).foregroundStyle(Theme.muted)
+            Button("Готово", action: close).buttonStyle(PrimaryButtonStyle())
+        } else {
+            Text("Сменить пароль сейфа").font(.system(size: 22, weight: .heavy))
+            Text("Нужен текущий пароль. Если вы его забыли — сменить нельзя: без него содержимое сейфа не расшифровать.")
+                .font(.subheadline).foregroundStyle(Theme.muted)
+            SecureField("Текущий пароль сейфа", text: $current).textContentType(.password).fieldStyle().colorScheme(.light)
+            HStack(spacing: 8) {
+                Group {
+                    if showNew { TextField("Новый пароль, не короче 6 символов", text: $new) }
+                    else { SecureField("Новый пароль, не короче 6 символов", text: $new) }
+                }
+                .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
+                Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted).frame(width: 36, height: 52)
+            }
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle().colorScheme(.light)
+            if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
+            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+            Button { Task { await submit() } } label: {
+                if busy { ProgressView().tint(Theme.onInk) } else { Text("Сохранить новый пароль") }
+            }
+            .buttonStyle(PrimaryButtonStyle()).disabled(!valid || busy).opacity(valid ? 1 : 0.5)
+            CancelButton(action: close)
+        }
+    }
+
+    private func submit() async {
+        busy = true; defer { busy = false }; error = nil
+        do {
+            if try await safe.changePassword(old: current, new: new) { withAnimation(.snappy) { done = true } }
+            else { error = "Текущий пароль не подошёл"; current = "" }
+        } catch { self.error = "Не удалось сменить пароль: \(error.localizedDescription)" }
+    }
+}
