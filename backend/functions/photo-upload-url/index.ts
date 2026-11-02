@@ -5,7 +5,7 @@ import { json, presign, userClient, UUID } from "../_shared/r2.ts";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method" }, 405);
-  const { item_id, place_id } = await req.json().catch(() => ({}));
+  const { item_id, place_id, doc } = await req.json().catch(() => ({}));
   const sb = userClient(req);
 
   let placeId: string, prefix: string;
@@ -24,7 +24,11 @@ Deno.serve(async (req) => {
 
   const photoKey = `${prefix}/photo.jpg`;
   const thumbKey = `${prefix}/thumb.jpg`;
+  // Документ (03.11.2026): ещё и PDF рядом — items/<id>/doc.pdf; можно запросить только его (doc_only).
+  const docKey = `${prefix}/doc.pdf`;
+  const docPart = doc && item_id ? { doc_key: docKey, doc_url: await presign(docKey, "PUT", 900) } : {};
   return json({
+    ...docPart,
     photo_key: photoKey,
     photo_url: await presign(photoKey, "PUT", 900),
     thumb_key: thumbKey,

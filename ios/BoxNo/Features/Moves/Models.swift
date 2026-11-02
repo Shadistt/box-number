@@ -86,12 +86,16 @@ struct Item: Codable, Identifiable, Hashable {
     var weightKg: Double?
     var value: Double?
     var valueCurrency: String?
-    enum CodingKeys: String, CodingKey { case id, photo, thumb, position, quantity, value
+    /// Документ (03.11.2026): ключ PDF в R2 и число страниц; nil — обычная вещь с фото.
+    var doc: String?
+    var docPages: Int?
+    enum CodingKeys: String, CodingKey { case id, photo, thumb, position, quantity, value, doc
         case rawTitle = "title", titleEnc = "title_enc"
         case placeId = "place_id", captionSource = "caption_source", takenAt = "taken_at", createdAt = "created_at"
-        case weightKg = "weight_kg", valueCurrency = "value_currency" }
+        case weightKg = "weight_kg", valueCurrency = "value_currency", docPages = "doc_pages" }
 
-    static let columns = "id,place_id,title,title_enc,caption_source,photo,thumb,taken_at,position,created_at,quantity,weight_kg,value,value_currency"
+    static let columns = "id,place_id,title,title_enc,caption_source,photo,thumb,taken_at,position,created_at,quantity,weight_kg,value,value_currency,doc,doc_pages"
+    var isDocument: Bool { docPages != nil }
     /// «Кружка ×2» — для сетки, списка и поиска.
     var titleWithQuantity: String { quantity > 1 ? "\(title) ×\(quantity)" : title }
     var isTaken: Bool { takenAt != nil }

@@ -2,12 +2,23 @@ import AVFoundation
 import UIKit
 
 /// Одна сессия камеры на приложение: её показывают и живая плитка в сетке, и полный экран.
-final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
+final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     static let shared = CameraModel()
 
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "co.boxnumber.camera")
     private let output = AVCapturePhotoOutput()
+    /// Кадры для поиска листа (документы, 03.11.2026). Обрабатываются только когда detectDocuments = true.
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private let visionQueue = DispatchQueue(label: "co.boxnumber.camera.vision")
+    private let detectLock = NSLock()
+    private var _detect = false
+    private var lastFrame = Date.distantPast
+    /// Включает поиск листа в кадре — только на полноэкранной камере (в плитке места не нужно).
+    var detectDocuments: Bool {
+        get { detectLock.lock(); defer { detectLock.unlock() }; return _detect }
+        set { detectLock.lock(); _detect = newValue; detectLock.unlock() }
+    }
     private var configured = false
     private var device: AVCaptureDevice?
     private var input: AVCaptureDeviceInput?
@@ -84,6 +95,12 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         }
         session.addInput(input)
         session.addOutput(output)
+        if session.canAddOutput(videoOutput) {
+            videoOutput.alwaysDiscardsLateVideoFrames = true
+            videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+            videoOutput.setSampleBufferDelegate(self, queue: visionQueue)
+            session.addOutput(videoOutput)
+        }
         self.device = device
         self.input = input
         output.maxPhotoQualityPrioritization = .balanced
@@ -124,6 +141,13 @@ final class CameraModel: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sen
         if let error { cont?.resume(throwing: error); return }
         guard let data = photo.fileDataRepresentation() else { cont?.resume(throwing: CameraError.noData); return }
         cont?.resume(returning: data)
+    }
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard detectDocuments, Date().timeIntervalSince(lastFrame) > 0.16,
+              let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        lastFrame = Date()
+        DocDetector.shared.process(buffer)
     }
 
     enum CameraError: LocalizedError {

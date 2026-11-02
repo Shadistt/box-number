@@ -166,6 +166,15 @@ final class PlacesStore {
         replaceItem(updated)
     }
 
+    /// Документ: ключ PDF и число страниц (ключ — после загрузки в R2, страницы — сразу).
+    func updateDocument(_ id: UUID, key: String?? = nil, pages: Int) async throws {
+        var patch: [String: AnyJSON] = ["doc_pages": .integer(pages)]
+        if let key { patch["doc"] = key.map { .string($0) } ?? .null }
+        let updated: Item = try await supabase.from("items").update(patch).eq("id", value: id.uuidString)
+            .select(Item.columns).single().execute().value
+        replaceItem(updated)
+    }
+
     /// Количество и поля описи. `nil` в weight/value — очистить.
     func updateInventory(_ id: UUID, quantity: Int? = nil, weightKg: Double?? = nil, value: Double?? = nil, currency: String?? = nil) async throws {
         var patch: [String: AnyJSON] = [:]

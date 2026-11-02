@@ -1,4 +1,5 @@
 import SwiftUI
+import PDFKit
 
 /// Превью вещи: локальный файл или подписанная ссылка R2.
 struct ItemThumb: View {
@@ -46,6 +47,12 @@ struct ItemCell: View {
             ZStack(alignment: .topLeading) {
                 Button(action: onTap) { ItemThumb(item: item) }.buttonStyle(.plain)
                     .opacity(item.isTaken ? 0.45 : 1)
+                    .overlay(alignment: .bottomTrailing) {
+                        if let n = item.docPages {   // документ: «PDF · 3»
+                            Text("PDF · \(n)").font(.system(size: 10, weight: .heavy)).foregroundStyle(.white)
+                                .padding(.horizontal, 6).frame(height: 18).background(Theme.accent, in: Capsule()).padding(5)
+                        }
+                    }
                 if status == .open {
                     TwoStepDelete(onDelete: onMinus) { armed in
                         Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
@@ -114,6 +121,7 @@ struct ItemCardView: View {
     @State private var retake = false
     @State private var photoVersion = 0
     @State private var quantity = 1
+    @State private var rescan = false
 
     private var place: Place? { store.place(item.placeId) }
     private var editable: Bool { place?.status == .open }
@@ -122,6 +130,11 @@ struct ItemCardView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if item.isDocument {
+                        // берём свежую версию из стора: после «Досканировать» число страниц меняется
+                        DocumentPreview(item: store.items(of: item.placeId).first { $0.id == item.id } ?? item,
+                                        editable: editable, onRescan: { rescan = true })
+                    } else {
                     ItemThumb(item: item, full: true).frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
                         .id(photoVersion)
                         .overlay(alignment: .bottomTrailing) {
@@ -141,6 +154,7 @@ struct ItemCardView: View {
                                 .padding(10)
                             }
                         }
+                    }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ПОДПИСЬ").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         // Название и количество в одной строке (паттерн Gojek / Careem, Mobbin): «Кружка  − 2 +».
@@ -195,9 +209,15 @@ struct ItemCardView: View {
             .task {
                 // Сейф: распознавание выключено, фото не уходит в модель
                 // По миниатюре (320 px — модели хватает 224), она уже на телефоне: подсказки сразу, не после загрузки крупного фото.
-                if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: true) { suggestions = await Captioner.candidates(img) }
+                if editable, !item.isEncrypted, item.isDocument, let page = await PhotoStore.image(for: item, thumb: false) {
+                    suggestions = await DocScanner.titleSuggestions(page)    // документ: по тексту первой страницы
+                } else if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: true) { suggestions = await Captioner.candidates(img) }
             }
             // Во весь экран, а не sheet поверх sheet'а — без «стопки окон» сзади.
+            .fullScreenCover(isPresented: $rescan) {
+                if let place { CameraView(store: store, placeId: place.id, appendTo: store.items(of: item.placeId).first { $0.id == item.id } ?? item) }
+            }
+            .onChange(of: rescan) { _, on in if on { Task { await DocStore.ensurePages(item) } } }
             .fullScreenCover(isPresented: $showMove) {
                 MoveItemView(store: store, item: item) { dismiss() }
             }
@@ -463,5 +483,91 @@ struct InventoryBlock: View {
         let w = parse(weight).map { ($0 * unit.kg * 100).rounded() / 100 }, v = parse(price)
         guard force || w != item.weightKg || v != item.value else { return }
         Task { try? await store.updateInventory(item.id, weightKg: .some(w), value: .some(v), currency: .some(v == nil ? nil : currency)) }
+    }
+}
+
+
+/// Документ в карточке вещи: страницы PDF (листаются), «Поделиться» и «Досканировать».
+struct DocumentPreview: View {
+    let item: Item
+    let editable: Bool
+    let onRescan: () -> Void
+    @State private var pdf: Data? = nil
+    @State private var shareURL: URL? = nil
+    @State private var full = false
+    @State private var loading = true
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(Theme.tile)
+                if let pdf { PDFKitView(data: pdf).clipShape(RoundedRectangle(cornerRadius: 16)) }
+                else if loading { ProgressView() }
+                else { Label(item.isEncrypted ? "Сейф закрыт" : "PDF не загрузился", systemImage: "doc").foregroundStyle(Theme.muted) }
+            }
+            .frame(height: 380)
+            .overlay(alignment: .topTrailing) {
+                if pdf != nil {
+                    HStack(spacing: 6) {
+                        if let shareURL {
+                            ShareLink(item: shareURL) { Label("Поделиться", systemImage: "square.and.arrow.up") }
+                                .font(.system(size: 13, weight: .semibold)).padding(.horizontal, 12).frame(height: 32)
+                                .background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
+                        }
+                        Button { full = true } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 13, weight: .bold))
+                                .frame(width: 32, height: 32).background(.black.opacity(0.55), in: Circle()).foregroundStyle(.white)
+                        }
+                    }
+                    .padding(10)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if let n = item.docPages, n > 1 {
+                    Text("\(n) стр. · листайте").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 10).frame(height: 26).background(.black.opacity(0.55), in: Capsule()).padding(10)
+                }
+            }
+            if editable {
+                Button(action: onRescan) { Label("Досканировать страницы", systemImage: "doc.badge.plus") }
+                    .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: Theme.ink))
+            }
+        }
+        .task(id: item.docPages) {
+            if let d = await DocStore.pdf(for: item) { pdf = d; shareURL = DocStore.shareFile(d, title: item.title) }
+            loading = false
+        }
+        .fullScreenCover(isPresented: $full) {
+            if let pdf {
+                NavigationStack {
+                    PDFKitView(data: pdf).ignoresSafeArea(edges: .bottom)
+                        .navigationTitle(item.title).navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { full = false } }
+                            if let shareURL { ToolbarItem(placement: .primaryAction) { ShareLink(item: shareURL) } }
+                        }
+                }
+            }
+        }
+    }
+}
+
+/// PDFKit в SwiftUI: страницы одна под другой, по ширине экрана.
+struct PDFKitView: UIViewRepresentable {
+    let data: Data
+    final class Coordinator { var data: Data? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> PDFView {
+        context.coordinator.data = data
+        let v = PDFView()
+        v.autoScales = true
+        v.displayMode = .singlePageContinuous
+        v.displayDirection = .vertical
+        v.backgroundColor = .clear
+        v.document = PDFDocument(data: data)
+        return v
+    }
+    func updateUIView(_ v: PDFView, context: Context) {
+        if context.coordinator.data != data { context.coordinator.data = data; v.document = PDFDocument(data: data) }
     }
 }

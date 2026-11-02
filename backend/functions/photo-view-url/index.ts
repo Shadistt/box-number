@@ -5,7 +5,7 @@ import { json, presign, userClient, UUID } from "../_shared/r2.ts";
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const { key } = await req.json().catch(() => ({}));
-  const m = typeof key === "string" ? key.match(/^(items|places)\/([0-9a-f-]{36})\/(photo|thumb)\.jpg$/) : null;
+  const m = typeof key === "string" ? key.match(/^(items|places)\/([0-9a-f-]{36})\/(photo\.jpg|thumb\.jpg|doc\.pdf)$/) : null;
   if (!m || !UUID.test(m[2])) return json({ error: "key" }, 400);
 
   const sb = userClient(req);
