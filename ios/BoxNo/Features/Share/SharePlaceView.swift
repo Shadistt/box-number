@@ -114,9 +114,20 @@ struct SharePlaceView: View {
                                     Text(sub(r)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
                                 }
                                 Spacer()
+                                if r.status != "active", r.createdAt.inviteExpired {
+                                    Button("Пригласить снова") {
+                                        Task {
+                                            try? await access.reinvite(kind: "place", id: r.id)
+                                            rows = await access.placeAccess(placeId); toast = "Приглашение отправлено снова"
+                                        }
+                                    }
+                                    .font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 30)
+                                    .background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
+                                } else {
                                 Button(r.role == "edit" ? "Редактирует" : "Смотрит") { Task { await toggleRole(r) } }
                                     .font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 30)
                                     .background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
+                                }
                                 Button { confirmRemove = r } label: { Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.muted).frame(width: 30, height: 30) }
                             }
                             .padding(.horizontal, 16).padding(.vertical, 10)
@@ -128,7 +139,7 @@ struct SharePlaceView: View {
                                 PersonAvatar(person: access.person(r.userId), fallback: String((r.invitedEmail ?? "?").prefix(1)).uppercased())
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(access.name(r)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                                    Text(r.status == "declined" ? "отклонил(а) приглашение в переезд" : r.status != "active" ? "видит через переезд · ждём ответа" : "видит через переезд").font(.footnote).lineLimit(1)
+                                    Text(r.status != "active" ? (r.createdAt.inviteExpired ? "приглашение в переезд истекло" : "видит через переезд · ждём ответа") : "видит через переезд").font(.footnote).lineLimit(1)
                                 }
                                 Spacer()
                                 Text(r.role == "edit" ? "Редактирует" : "Смотрит").font(.footnote.weight(.semibold))
@@ -186,8 +197,8 @@ struct SharePlaceView: View {
     }
 
     private func sub(_ r: AccessRow) -> String {
-        if r.status == "declined" { return "отклонил(а) приглашение" }
-        if r.status != "active" { return "приглашение отправлено · ждём" }
+        // Тихий отказ: «отклонил» отправителю не показываем никогда.
+        if r.status != "active" { return r.createdAt.inviteExpired ? "приглашение истекло" : "приглашение отправлено · ждём ответа" }
         let fam = access.family.contains { $0.userId == r.userId } ? "из семьи · " : ""
         if let at = r.lastOpenedAt { return fam + "открывал " + at.formatted(.relative(presentation: .named)) }
         return fam + "ещё не открывал"

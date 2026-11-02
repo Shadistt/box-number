@@ -89,16 +89,23 @@ struct MoveFamilyView: View {
         let row = rows.first { ($0.userId != nil && $0.userId == m.userId) || ($0.invitedEmail != nil && $0.invitedEmail == m.invitedEmail) }
         let on = row != nil
         let pending = m.status == "invited" || m.status == "pending"
-        let declined = m.status == "declined" || row?.status == "declined"
+        // Тихий отказ (02.11.2026): отправитель никогда не видит «отклонил» — только «ждём ответа»; через 30 дней — «истекло».
+        let waiting = pending || (row != nil && row?.status != "active")
+        let expired = waiting && ((pending ? m.createdAt : row?.createdAt) ?? .now).inviteExpired
         return HStack(spacing: 12) {
             PersonAvatar(person: access.person(m.userId), fallback: String((m.invitedEmail ?? "?").prefix(1)).uppercased())
             VStack(alignment: .leading, spacing: 2) {
                 Text(access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                Text(!loaded ? " " : declined ? "отклонил(а) приглашение" : pending ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
+                Text(!loaded ? " " : expired ? "приглашение истекло" : waiting ? "ждём ответа на приглашение" : on ? (row?.role == "edit" ? "видит и редактирует" : "только смотрит") : "не видит этот переезд")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()
-            if on, let row, !pending {
+            if loaded, expired {
+                Button("Пригласить снова") { Task { await reinvite(m, row: row) } }
+                    .font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 30)
+                    .background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
+            }
+            if on, let row, !pending, !expired {
                 Button(row.role == "edit" ? "Редактирует" : "Смотрит") { Task { await toggleRole(row) } }
                     .font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 30)
                     .background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
@@ -110,6 +117,15 @@ struct MoveFamilyView: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+    private func reinvite(_ m: FamilyMember, row: AccessRow?) async {
+        do {
+            if m.status != "active" { try await access.reinvite(kind: "family", id: m.id) }
+            if let row, row.status != "active" { try await access.reinvite(kind: "move", id: row.id) }
+            await access.loadFamily(); rows = await access.moveAccess(move.id)
+            flash("Приглашение отправлено снова")
+        } catch { flash("Не получилось. Попробуйте ещё раз") }
     }
 
     private func set(_ m: FamilyMember, on: Bool, existing: AccessRow?) async {

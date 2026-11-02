@@ -186,22 +186,35 @@ final class AccessStore {
     /// После входа: приглашения по моему email становятся доступом.
     // MARK: приглашения мне (pending) и блокировки
 
+    /// Приглашение мне. state: pending | accepted | declined | expired | blocked; kind: family | move | place | block.
     struct Invitation: Decodable, Identifiable, Hashable {
-        var kind: String            // family | move | place
+        var kind: String
         var id: UUID
-        var inviterId: UUID
+        var inviterId: UUID?
         var inviterName: String
         var inviterEmail: String
         var title: String?
-        var role: String
+        var role: String?
         var createdAt: Date
-        enum CodingKeys: String, CodingKey { case kind, id, title, role
-            case inviterId = "inviter_id", inviterName = "inviter_name", inviterEmail = "inviter_email", createdAt = "created_at" }
+        var state: String
+        var daysLeft: Int?
+        enum CodingKeys: String, CodingKey { case kind, id, title, role, state
+            case inviterId = "inviter_id", inviterName = "inviter_name", inviterEmail = "inviter_email", createdAt = "created_at", daysLeft = "days_left" }
         var text: String {
             switch kind {
             case "family": "приглашает вас в семью"
             case "move": "приглашает вас в переезд «\(title ?? "")» и в семью"
-            default: "открывает вам место \(title ?? "")"
+            case "place": "открывает вам место \(title ?? "")"
+            default: ""
+            }
+        }
+        /// «в переезд «Вена → Киев»» — для строки в разделе «Приглашения».
+        var what: String {
+            switch kind {
+            case "family": "в семью"
+            case "move": "в переезд «\(title ?? "")»"
+            case "place": "место \(title ?? "")"
+            default: "заблокирован(а)"
             }
         }
         var roleText: String { role == "edit" ? "можно редактировать" : "только смотреть" }
@@ -210,30 +223,55 @@ final class AccessStore {
         var id: UUID; var email: String; var name: String?; var createdAt: Date
         enum CodingKeys: String, CodingKey { case id, email, name, createdAt = "created_at" }
     }
-    var invitations: [Invitation] = []
+    /// Все приглашения мне (раздел «Приглашения»); на главном — только ждущие.
+    var allInvitations: [Invitation] = []
+    var invitations: [Invitation] { allInvitations.filter { $0.state == "pending" } }
     var blocks: [Block] = []
 
     func loadInvitations() async {
-        do { invitations = try await supabase.rpc("my_invitations").execute().value } catch { print("my_invitations:", error) }
+        do { allInvitations = try await supabase.rpc("my_invitations").execute().value } catch { print("my_invitations:", error) }
     }
+    private struct KindId: Encodable { var p_kind: String; var p_id: UUID }
+
     /// Принять / отклонить. Переезд и семья от одного человека — один ответ на оба (ТЗ §9).
+    /// Отказ тихий: отправитель продолжает видеть «ждём ответа». Принять можно и отклонённое — в течение 30 дней.
     func respond(_ inv: Invitation, accept: Bool) async throws {
         struct P: Encodable { var p_kind: String; var p_id: UUID; var p_accept: Bool }
         try await supabase.rpc("respond_invitation", params: P(p_kind: inv.kind, p_id: inv.id, p_accept: accept)).execute()
-        invitations.removeAll { $0.id == inv.id || ($0.inviterId == inv.inviterId && ($0.kind == "family" || inv.kind == "family") && $0.kind != "place") }
         if accept { MovesStore.clearCache() }
+        await loadInvitations()
+    }
+    /// «Отменить» сразу после отказа: приглашение снова ждёт ответа.
+    func undoDecline(_ inv: Invitation) async throws {
+        try await supabase.rpc("undo_decline", params: KindId(p_kind: inv.kind, p_id: inv.id)).execute()
+        await loadInvitations()
+    }
+    /// «Выйти» из принятого: доступ закрывается.
+    func leave(_ inv: Invitation) async throws {
+        try await supabase.rpc("leave_access", params: KindId(p_kind: inv.kind, p_id: inv.id)).execute()
+        MovesStore.clearCache()
+        await loadInvitations()
+    }
+    /// «Пригласить снова» у отправителя — для истёкшего приглашения (старше 30 дней).
+    func reinvite(kind: String, id: UUID) async throws {
+        try await supabase.rpc("reinvite", params: KindId(p_kind: kind, p_id: id)).execute()
     }
     /// Заблокировать: его приглашения больше не доходят; он об этом не узнаёт.
     @discardableResult
     func block(email: String) async throws -> UUID {
         let id: UUID = try await supabase.rpc("block_user", params: ["p_email": email]).execute().value
-        invitations.removeAll { $0.inviterEmail.lowercased() == email.lowercased() }
-        await loadBlocks()
+        await loadBlocks(); await loadInvitations()
         return id
     }
     func unblock(_ id: UUID) async throws {
         try await supabase.from("blocks").delete().eq("id", value: id).execute()
         blocks.removeAll { $0.id == id }
+        await loadInvitations()
+    }
+    /// Разблокировать по email (из строки приглашения со статусом «Заблокирован»).
+    func unblock(email: String) async throws {
+        await loadBlocks()
+        if let b = blocks.first(where: { $0.email.lowercased() == email.lowercased() }) { try await unblock(b.id) }
     }
     func loadBlocks() async {
         do { blocks = try await supabase.rpc("my_blocks").execute().value } catch { print("my_blocks:", error) }
@@ -244,7 +282,7 @@ final class AccessStore {
         catch { print("claim_invites:", error) }
     }
 
-    func clear() { familyId = nil; family = []; people = [:]; recent = []; invitations = []; blocks = []; loaded = false }
+    func clear() { familyId = nil; family = []; people = [:]; recent = []; allInvitations = []; blocks = []; loaded = false }
 }
 
 /// Кружок с инициалом или фото — для списков людей.
@@ -280,6 +318,9 @@ extension String {
         range(of: #"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$"#, options: .regularExpression) != nil
     }
 }
+
+/// Приглашение, отправленное мной, не принятое за 30 дней — «истекло» (отказ и блокировку отправитель не видит).
+extension Date { var inviteExpired: Bool { Date().timeIntervalSince(self) > 30 * 86_400 } }
 
 extension Int {
     /// «1 человек / 2 человека / 5 человек»

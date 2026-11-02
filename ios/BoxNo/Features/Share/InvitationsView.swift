@@ -15,7 +15,7 @@ struct InvitationsSection: View {
             ForEach(access.invitations) { inv in
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 12) {
-                        InitialsAvatar(name: inv.inviterName, seed: inv.inviterId)
+                        InitialsAvatar(name: inv.inviterName, seed: inv.inviterId ?? inv.id)
                         VStack(alignment: .leading, spacing: 3) {
                             (Text(inv.inviterName).fontWeight(.bold) + Text(" \(inv.text)")).font(.system(size: 16)).foregroundStyle(Theme.ink)
                             Text("\(inv.inviterEmail) · \(inv.roleText)").font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
@@ -70,9 +70,15 @@ struct BlockAfterDeclineOverlay: View {
             if let inv = invitation {
                 BottomCard(isPresented: .init(get: { invitation != nil }, set: { if !$0 { invitation = nil } })) {
                     Text("Приглашение отклонено").font(.system(size: 22, weight: .heavy))
-                    Text("Не знаете \(inv.inviterName)? Заблокируйте — приглашения от \(inv.inviterEmail) больше не будут приходить. Человек об этом не узнает.")
+                    Text("\(inv.inviterName) об этом не узнает — у него останется «ждём ответа». Передумаете — Настройки → Приглашения, 30 дней.")
+                        .font(.subheadline).foregroundStyle(Theme.muted)
+                    Text("Не знаете \(inv.inviterName)? Заблокируйте — приглашения от \(inv.inviterEmail) больше не будут приходить.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                     Button("Заблокировать") { Task { await block(inv) } }.buttonStyle(PrimaryButtonStyle(fill: .red))
+                    Button("Отменить отказ") {
+                        Task { try? await access.undoDecline(inv); withAnimation(.snappy) { invitation = nil } }
+                    }
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink).frame(maxWidth: .infinity, minHeight: 44)
                     CancelButton(title: "Не нужно") { withAnimation(.snappy) { invitation = nil } }
                 }
             }
@@ -105,46 +111,162 @@ struct InitialsAvatar: View {
     }
 }
 
-// MARK: - Настройки → Заблокированные
+// MARK: - Настройки → Приглашения (02.11.2026): все приглашения мне со статусами; тап по статусу — изменить.
+// Паттерн Instacart / Partiful (Mobbin): чипы-фильтры со счётчиками, цветной статус справа, лист снизу с действиями.
 
-struct BlockedView: View {
+struct InvitationsListView: View {
     @State private var access = AccessStore.shared
+    @State private var filter = "all"
+    @State private var selected: AccessStore.Invitation? = nil
+    @State private var busy = false
+    @State private var loaded = false
+
+    private let filters: [(String, String)] = [("all", "Все"), ("pending", "Ждут"), ("accepted", "Принятые"), ("declined", "Отклонённые"), ("blocked", "Заблокированные")]
+    private func count(_ f: String) -> Int { f == "all" ? access.allInvitations.count : access.allInvitations.filter { group($0) == f }.count }
+    /// «Истекло» показываем в «Отклонённых» — действий почти нет, отдельный фильтр не нужен.
+    private func group(_ i: AccessStore.Invitation) -> String { i.state == "expired" ? "declined" : i.state }
+    private var rows: [AccessStore.Invitation] { filter == "all" ? access.allInvitations : access.allInvitations.filter { group($0) == filter } }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if access.blocks.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "hand.raised").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.muted)
-                        Text("Здесь пусто").font(.headline)
-                        Text("Заблокировать можно, когда отклоняете приглашение.").font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity).padding(.top, 60)
-                } else {
-                    SettingsCard {
-                        ForEach(Array(access.blocks.enumerated()), id: \.element.id) { i, b in
-                            if i > 0 { Divider().padding(.leading, 16) }
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(b.name ?? b.email).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                                    Text((b.name == nil ? "" : b.email + " · ") + "с \(b.createdAt.formatted(.dateTime.day().month()))").font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
+                Text("Все приглашения, которые вам присылали. Тап по статусу — изменить.").font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(filters, id: \.0) { f in
+                            Button { withAnimation(.snappy) { filter = f.0 } } label: {
+                                HStack(spacing: 4) {
+                                    Text(f.1).font(.system(size: 14, weight: .semibold))
+                                    Text("\(count(f.0))").font(.system(size: 14)).foregroundStyle(filter == f.0 ? Theme.onInk.opacity(0.6) : Theme.muted)
                                 }
-                                Spacer()
-                                Button("Разблокировать") { Task { try? await access.unblock(b.id) } }
-                                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink)
-                                    .padding(.horizontal, 12).frame(height: 34).background(Theme.fill, in: Capsule())
-                            }
-                            .padding(16)
+                                .padding(.horizontal, 12).frame(height: 34)
+                                .background(filter == f.0 ? Theme.ink : Theme.card, in: Capsule()).foregroundStyle(filter == f.0 ? Theme.onInk : Theme.ink)
+                            }.buttonStyle(.plain)
                         }
                     }
-                    Text("Заблокированные не могут приглашать вас в семью, переезды и места. Они об этом не знают — их приглашения просто не доходят.")
-                        .font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+                }.scrollIndicators(.hidden)
+
+                if !loaded {
+                    ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                } else if rows.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "envelope.open").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.muted)
+                        Text("Здесь пусто").font(.headline)
+                        Text(filter == "blocked" ? "Заблокировать можно, когда отклоняете приглашение." : "Приглашения в семью, переезды и места появятся здесь.")
+                            .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                    }.frame(maxWidth: .infinity).padding(.top, 50)
+                } else {
+                    SettingsCard {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { i, inv in
+                            if i > 0 { Divider().padding(.leading, 68) }
+                            Button { selected = inv } label: { row(inv) }.buttonStyle(.plain)
+                        }
+                    }
                 }
             }
             .padding(16)
         }
         .background(Theme.bg)
-        .navigationTitle("Заблокированные").navigationBarTitleDisplayMode(.inline)
-        .task { await access.loadBlocks() }
+        .navigationTitle("Приглашения").navigationBarTitleDisplayMode(.inline)
+        .task { await access.loadInvitations(); loaded = true }
+        .refreshable { await access.loadInvitations() }
+        .overlay {
+            if let inv = selected {
+                BottomCard(isPresented: .init(get: { selected != nil }, set: { if !$0 { selected = nil } })) { actions(inv) }
+            }
+        }
+        .animation(.snappy, value: selected?.id)
+    }
+
+    private func row(_ inv: AccessStore.Invitation) -> some View {
+        HStack(spacing: 12) {
+            InitialsAvatar(name: inv.inviterName, seed: inv.inviterId ?? inv.id, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inv.inviterName).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                Text(subtitle(inv)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(2)
+            }
+            Spacer(minLength: 6)
+            StatusPill(state: inv.state)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12).contentShape(Rectangle())
+    }
+
+    private func subtitle(_ inv: AccessStore.Invitation) -> String {
+        let date = inv.createdAt.formatted(.dateTime.day().month())
+        switch inv.state {
+        case "declined": return "\(inv.what) · \(date) · можно принять ещё \(Plural.days(inv.daysLeft ?? 0))"
+        case "blocked": return inv.kind == "block" ? "с \(date) · его приглашения не доходят" : "\(inv.what) · \(date) · приглашения не доходят"
+        case "expired": return "\(inv.what) · \(date) · срок ответа прошёл"
+        default: return "\(inv.what) · \(date)"
+        }
+    }
+
+    @ViewBuilder
+    private func actions(_ inv: AccessStore.Invitation) -> some View {
+        Text(inv.kind == "block" ? inv.inviterName : "\(inv.inviterName) · \(inv.kind == "family" ? "в семью" : inv.kind == "move" ? "в переезд" : "место")")
+            .font(.system(size: 22, weight: .heavy))
+        Text(explain(inv)).font(.subheadline).foregroundStyle(Theme.muted)
+        switch inv.state {
+        case "pending":
+            action("Принять", fill: Theme.ink, ink: Theme.onInk) { try await access.respond(inv, accept: true) }
+            action("Отклонить", fill: Theme.fill, ink: Theme.ink) { try await access.respond(inv, accept: false) }
+            action("Заблокировать", fill: Color.red.opacity(0.08), ink: .red) { try await access.block(email: inv.inviterEmail) }
+        case "accepted":
+            action(inv.kind == "family" ? "Выйти из семьи" : inv.kind == "move" ? "Выйти из переезда" : "Убрать место", fill: Color.red.opacity(0.08), ink: .red) { try await access.leave(inv) }
+        case "declined":
+            action("Принять", fill: Theme.ink, ink: Theme.onInk) { try await access.respond(inv, accept: true) }
+            action("Заблокировать", fill: Color.red.opacity(0.08), ink: .red) { try await access.block(email: inv.inviterEmail) }
+        case "expired":
+            action("Заблокировать", fill: Color.red.opacity(0.08), ink: .red) { try await access.block(email: inv.inviterEmail) }
+        case "blocked":
+            action("Разблокировать", fill: Theme.ink, ink: Theme.onInk) { try await access.unblock(email: inv.inviterEmail) }
+        default: EmptyView()
+        }
+        CancelButton(title: "Закрыть") { withAnimation(.snappy) { selected = nil } }
+    }
+
+    private func explain(_ inv: AccessStore.Invitation) -> String {
+        let what = inv.title.map { "«\($0)», " } ?? ""
+        let date = inv.createdAt.formatted(.dateTime.day().month(.wide))
+        switch inv.state {
+        case "pending": return "\(what)\(date). \(inv.roleText.capitalized)."
+        case "accepted": return "\(what)вы приняли приглашение. Выйдете — доступ закроется; \(inv.inviterName) увидит, что вас больше нет в списке."
+        case "declined": return "\(what)\(date). Вы отклонили — \(inv.inviterName) об этом не знает, у него «ждём ответа». Принять можно ещё \(Plural.days(inv.daysLeft ?? 0))."
+        case "expired": return "\(what)\(date). Срок ответа прошёл. Если \(inv.inviterName) пригласит снова — приглашение появится на главном."
+        case "blocked": return "Приглашения от \(inv.inviterEmail) не доходят, человек об этом не знает. Разблокируете — отклонённые при блокировке приглашения снова можно будет принять (в пределах 30 дней)."
+        default: return ""
+        }
+    }
+
+    private func action(_ title: String, fill: Color, ink: Color, _ run: @escaping () async throws -> Void) -> some View {
+        Button {
+            Task {
+                busy = true; defer { busy = false }
+                do { try await run(); withAnimation(.snappy) { selected = nil } } catch { print("invitation action:", error) }
+            }
+        } label: { Text(title) }
+        .buttonStyle(PrimaryButtonStyle(fill: fill, ink: ink)).disabled(busy)
+    }
+}
+
+/// Цветной статус: Ждёт — оранжевый, Принято — зелёный, Отклонено/Истекло — серый, Заблокирован — красный.
+struct StatusPill: View {
+    let state: String
+    private var style: (String, Color, Color) {
+        switch state {
+        case "pending": ("Ждёт", Theme.accent.opacity(0.12), Theme.accent)
+        case "accepted": ("Принято", Color.green.opacity(0.14), Color(hex: 0x2F7D46))
+        case "declined": ("Отклонено", Theme.fill, Theme.muted)
+        case "expired": ("Истекло", Theme.fill, Theme.muted)
+        default: ("Заблокирован", Color.red.opacity(0.1), .red)
+        }
+    }
+    var body: some View {
+        HStack(spacing: 2) {
+            Text(style.0)
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
+        }
+        .font(.system(size: 12, weight: .bold)).padding(.horizontal, 9).frame(height: 26)
+        .background(style.1, in: Capsule()).foregroundStyle(style.2)
     }
 }

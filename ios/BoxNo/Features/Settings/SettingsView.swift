@@ -56,7 +56,7 @@ struct SettingsView: View {
                         Divider().padding(.leading, 16)
                         NavigationLink { PermissionsView() } label: { Row("Разрешения") }
                         Divider().padding(.leading, 16)
-                        NavigationLink { BlockedView() } label: { Row("Заблокированные") }
+                        NavigationLink { InvitationsListView() } label: { Row("Приглашения", value: pendingValue) }
                     }
                     SettingsCard {
                         NavigationLink { DocsView() } label: { Row("Документы, конфиденциальность и поддержка") }
@@ -96,6 +96,11 @@ struct SettingsView: View {
             .refreshable { await store.load(); await AccessStore.shared.loadFamily() }
         }
         .tint(Theme.ink)
+    }
+
+    private var pendingValue: String? {
+        let n = AccessStore.shared.invitations.count
+        return n > 0 ? "\(n) ждут" : nil
     }
 
     private var familyValue: String {

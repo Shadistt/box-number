@@ -103,6 +103,7 @@ extension Move {
 enum Plural {
     static func things(_ n: Int) -> String { "\(n) " + form(n, "вещь", "вещи", "вещей") }
     static func places(_ n: Int) -> String { "\(n) " + form(n, "место", "места", "мест") }
+    static func days(_ n: Int) -> String { "\(n) " + form(n, "день", "дня", "дней") }
     static func form(_ n: Int, _ one: String, _ few: String, _ many: String) -> String {
         let m10 = n % 10, m100 = n % 100
         if m10 == 1 && m100 != 11 { return one }
