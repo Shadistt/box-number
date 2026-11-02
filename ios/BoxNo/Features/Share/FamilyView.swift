@@ -6,6 +6,10 @@ struct FamilyView: View {
     @State private var invite = false
     @State private var confirmRemove: FamilyMember? = nil
     @State private var toast: String? = nil
+    /// Кому уже напомнили (на сутки): кнопка становится «Отправлено ✓» и не нажимается.
+    @State private var reminded: [UUID: Date] = (UserDefaults.standard.dictionary(forKey: "family_reminded") as? [String: Date] ?? [:])
+        .reduce(into: [:]) { r, kv in if let id = UUID(uuidString: kv.key) { r[id] = kv.value } }
+    private func wasReminded(_ m: FamilyMember) -> Bool { (reminded[m.id].map { Date().timeIntervalSince($0) < 86_400 }) ?? false }
 
     var body: some View {
         ScrollView {
@@ -31,7 +35,10 @@ struct FamilyView: View {
                                     Button("Пригласить снова") { Task { try? await access.reinvite(kind: "family", id: m.id); await access.loadFamily() } }.font(.footnote.weight(.semibold))
                                         .padding(.horizontal, 10).frame(height: 30).background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
                                 } else if m.status != "active" {
-                                    Button("Напомнить") { Task { await remind(m) } }.font(.footnote.weight(.semibold))
+                                    Button { Task { await remind(m) } } label: {
+                                        if wasReminded(m) { Label("Отправлено", systemImage: "checkmark") } else { Text("Напомнить") }
+                                    }
+                                    .disabled(wasReminded(m)).font(.footnote.weight(.semibold))
                                         .padding(.horizontal, 10).frame(height: 30).background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
                                 }
                                 Button { confirmRemove = m } label: { Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.muted).frame(width: 30, height: 30) }
@@ -83,8 +90,14 @@ struct FamilyView: View {
     }
 
     private func remind(_ m: FamilyMember) async {
-        guard let e = m.invitedEmail else { return }
-        do { _ = try await access.invite(email: e, kind: "family"); flash("Напомнили на \(e)") } catch { flash("Не получилось") }
+        // У зарегистрированных invitedEmail пустой — берём почту из профиля (раньше кнопка молча ничего не делала).
+        guard let e = access.person(m.userId)?.email ?? m.invitedEmail else { flash("Не нашли почту"); return }
+        do {
+            _ = try await access.invite(email: e, kind: "family")
+            reminded[m.id] = Date()
+            UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: reminded.map { ($0.key.uuidString, $0.value) }), forKey: "family_reminded")
+            flash("Напомнили на \(e)")
+        } catch { flash("Не получилось") }
     }
     private func flash(_ t: String) { toast = t; Task { try? await Task.sleep(for: .seconds(2.5)); if toast == t { toast = nil } } }
 }

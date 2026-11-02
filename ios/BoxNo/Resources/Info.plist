@@ -17,6 +17,7 @@
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>NSCameraUsageDescription</key><string>Камера нужна, чтобы снимать вещи в коробках и номер на коробке.</string>
   <key>NSPhotoLibraryUsageDescription</key><string>Чтобы выбрать фото профиля из галереи.</string>
+  <key>NSFaceIDUsageDescription</key><string>Face ID открывает сейф без ввода пароля.</string>
   <key>NSContactsUsageDescription</key><string>Чтобы пригласить людей из контактов.</string>
   <key>GIDClientID</key><string>1076074844899-vvmmnaf81dsf0phgdu71pr80cvhaobva.apps.googleusercontent.com</string>
   <key>CFBundleURLTypes</key>

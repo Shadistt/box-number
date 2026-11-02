@@ -89,7 +89,8 @@ struct AccountView: View {
                     Divider().padding(.leading, 16)
                     providerRow("Google", symbol: "g.circle.fill", provider: "google")
                 }
-                if store.identities.count == 1, store.identity("email") == nil {
+                // С паролем вход по почте остаётся всегда — тогда «единственный способ» неправда.
+                if store.identities.count == 1, store.identity("email") == nil, !store.hasPassword {
                     Text("Это единственный способ входа — его нельзя отвязать. Задайте пароль или привяжите другой.")
                         .font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
                 }
@@ -148,8 +149,15 @@ struct AccountView: View {
             if let p = unlinkProvider {
                 BottomCard(isPresented: .init(get: { unlinkProvider != nil }, set: { if !$0 { unlinkProvider = nil } })) {
                     Text("Отвязать \(p == "apple" ? "Apple" : "Google")?").font(.system(size: 22, weight: .heavy))
-                    Text("Войти этим способом больше не получится, пока не привяжете снова.").font(.subheadline).foregroundStyle(Theme.muted)
-                    Button("Отвязать") { Task { await unlink(p) } }.buttonStyle(PrimaryButtonStyle(fill: .red))
+                    // Вход через Google/Apple с той же почтой, что у аккаунта, снова привязывает способ — так работает сервер входа.
+                    Text(sameEmail(p)
+                         ? "Способ пропадёт из списка. Но почта в \(p == "apple" ? "Apple" : "Google") та же, что у аккаунта, — если снова войти через \(p == "apple" ? "Apple" : "Google"), он привяжется сам."
+                         : "Войти этим способом больше не получится, пока не привяжете снова.")
+                        .font(.subheadline).foregroundStyle(Theme.muted)
+                    Button { Task { await unlink(p) } } label: {
+                        if busy { ProgressView().tint(.white) } else { Text("Отвязать") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle(fill: .red)).disabled(busy)
                     CancelButton { withAnimation(.snappy) { unlinkProvider = nil } }
                 }
             }
@@ -231,8 +239,20 @@ struct AccountView: View {
     private func unlink(_ provider: String) async {
         guard let identity = store.identity(provider) else { return }
         busy = true; defer { busy = false }
-        do { try await supabase.auth.unlinkIdentity(identity); await store.loadIdentities() }
-        catch { self.error = "Не удалось отвязать: \(error.localizedDescription)" }
+        do {
+            try await supabase.auth.unlinkIdentity(identity)
+            await store.loadIdentities()
+            withAnimation(.snappy) { unlinkProvider = nil }      // раньше карточка оставалась висеть
+        }
+        catch {
+            withAnimation(.snappy) { unlinkProvider = nil }      // ошибка видна под списком способов, а не за карточкой
+            self.error = "Не удалось отвязать: \(error.localizedDescription)"
+        }
+    }
+
+    private func sameEmail(_ provider: String) -> Bool {
+        guard let e = store.identityEmail(provider)?.lowercased(), let mine = store.profile?.email.lowercased() else { return false }
+        return e == mine
     }
 }
 

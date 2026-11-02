@@ -27,10 +27,10 @@ struct SafeSetupCard: View {
                 if show { TextField("Пароль, не короче 6 символов", text: $password) }
                 else { SecureField("Пароль, не короче 6 символов", text: $password) }
             }
-            .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
+            .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
             Button { show.toggle() } label: { Image(systemName: show ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted).frame(width: 36, height: 52)
         }
-        SecureField("Ещё раз", text: $repeatPassword).textContentType(.newPassword).fieldStyle().colorScheme(.light)
+        SecureField("Ещё раз", text: $repeatPassword).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
         if !repeatPassword.isEmpty, repeatPassword != password { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
         if safe.biometryAvailable {
             Toggle(isOn: $useBiometry) {
@@ -72,7 +72,7 @@ struct SafeUnlockCard: View {
     var body: some View {
         Text("Сейф закрыт").font(.system(size: 22, weight: .heavy))
         Text("Введите пароль сейфа. Он закрывается сам, когда вы уходите из приложения.").font(.subheadline).foregroundStyle(Theme.muted)
-        SecureField("Пароль сейфа", text: $password).textContentType(.password).fieldStyle().colorScheme(.light)
+        SecureField("Пароль сейфа", text: $password).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
             .focused($focused).submitLabel(.go).onSubmit { Task { await open() } }
         if let error { Text(error).font(.footnote).foregroundStyle(.red) }
         Button { Task { await open() } } label: {
@@ -138,16 +138,16 @@ struct SafePasswordChangeCard: View {
             Text("Сменить пароль сейфа").font(.system(size: 22, weight: .heavy))
             Text("Нужен текущий пароль. Если вы его забыли — сменить нельзя: без него содержимое сейфа не расшифровать.")
                 .font(.subheadline).foregroundStyle(Theme.muted)
-            SecureField("Текущий пароль сейфа", text: $current).textContentType(.password).fieldStyle().colorScheme(.light)
+            SecureField("Текущий пароль сейфа", text: $current).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
             HStack(spacing: 8) {
                 Group {
                     if showNew { TextField("Новый пароль, не короче 6 символов", text: $new) }
                     else { SecureField("Новый пароль, не короче 6 символов", text: $new) }
                 }
-                .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
+                .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
                 Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted).frame(width: 36, height: 52)
             }
-            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle().colorScheme(.light)
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             Button { Task { await submit() } } label: {
