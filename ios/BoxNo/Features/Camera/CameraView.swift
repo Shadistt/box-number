@@ -34,7 +34,7 @@ struct CameraView: View {
                     Text("Нет доступа к камере").font(.headline).foregroundStyle(.white)
                     Button("Открыть настройки") {
                         if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
-                    }.buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.ink)).padding(.horizontal, 60)
+                    }.buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.dark)).padding(.horizontal, 60)
                 }
             }
             if flash { Color.white.ignoresSafeArea().transition(.opacity) }

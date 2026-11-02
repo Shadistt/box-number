@@ -284,7 +284,7 @@ struct AvatarCarousel: View {
                         item(p.id) {
                             ZStack {
                                 p.color
-                                Image(systemName: p.symbol).font(.system(size: 34, weight: .semibold)).foregroundStyle(Theme.onInk)
+                                Image(systemName: p.symbol).font(.system(size: 34, weight: .semibold)).foregroundStyle(.white)
                             }
                         }
                         .onTapGesture { withAnimation(.snappy) { selection = p.id } }

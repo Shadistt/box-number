@@ -96,6 +96,8 @@ struct SettingsView: View {
             .refreshable { await store.load(); await AccessStore.shared.loadFamily() }
         }
         .tint(Theme.ink)
+        // Настройки — отдельная презентация: тему задаём и ей, иначе «Тема» оставалась в старых цветах до закрытия.
+        .preferredColorScheme((AppTheme(rawValue: theme) ?? .system).scheme)
     }
 
     private var pendingValue: String? {

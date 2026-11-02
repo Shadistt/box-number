@@ -97,7 +97,7 @@ struct BoxTileView: View {
 
     private var other: some View {
         VStack(spacing: 6) {
-            Image(systemName: place.kind.symbol).font(.system(size: size * 0.26, weight: .medium))
+            KindIcon(kind: place.kind, size: size * 0.26, weight: .medium)
             Text(place.number).font(.system(size: size * 0.3, weight: .heavy, design: .rounded)).minimumScaleFactor(0.5).lineLimit(1)
         }
         .foregroundStyle(packed ? Theme.onInk : Theme.ink)

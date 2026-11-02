@@ -48,7 +48,7 @@ struct ItemCell: View {
                     .opacity(item.isTaken ? 0.45 : 1)
                 if status == .open {
                     TwoStepDelete(onDelete: onMinus) { armed in
-                        Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.onInk)
+                        Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
                             .frame(width: 26, height: 26).background(armed ? Color.red : .black.opacity(0.55), in: Circle())
                     }.padding(6)
                 } else if status == .unpacking {
@@ -129,13 +129,13 @@ struct ItemCardView: View {
                                 HStack(spacing: 8) {
                                     Button { retake = true } label: {
                                         Label("Переснять", systemImage: "camera").font(.system(size: 13, weight: .semibold))
-                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(Theme.onInk)
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
                                     }
                                     Button {
                                         Task { if let img = await PhotoStore.image(for: item, thumb: false) { editPhoto = EditablePhoto(image: img) } }
                                     } label: {
                                         Label("Обрезать · повернуть", systemImage: "crop.rotate").font(.system(size: 13, weight: .semibold))
-                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(Theme.onInk)
+                                            .padding(.horizontal, 12).frame(height: 32).background(.black.opacity(0.55), in: Capsule()).foregroundStyle(.white)
                                     }
                                 }
                                 .padding(10)
@@ -194,7 +194,8 @@ struct ItemCardView: View {
             .onAppear { title = item.title; quantity = item.quantity }
             .task {
                 // Сейф: распознавание выключено, фото не уходит в модель
-                if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: false) { suggestions = await Captioner.candidates(img) }
+                // По миниатюре (320 px — модели хватает 224), она уже на телефоне: подсказки сразу, не после загрузки крупного фото.
+                if editable, !item.isEncrypted, let img = await PhotoStore.image(for: item, thumb: true) { suggestions = await Captioner.candidates(img) }
             }
             // Во весь экран, а не sheet поверх sheet'а — без «стопки окон» сзади.
             .fullScreenCover(isPresented: $showMove) {
@@ -255,7 +256,7 @@ struct MoveItemView: View {
                                 // Галочка как в «Куда едет»; текущее место отмечено с самого начала.
                                 Image(systemName: selected == p.id ? "checkmark.circle.fill" : "circle")
                                     .font(.system(size: 22)).foregroundStyle(selected == p.id ? Theme.accent : Theme.line)
-                                Image(systemName: p.kind.symbol).font(.system(size: 17, weight: .semibold))
+                                KindIcon(kind: p.kind, size: 17, weight: .semibold)
                                     .frame(width: 28)          // одинаковая ширина — текст начинается в одну линию
                                     .foregroundStyle(open ? Theme.ink : Theme.muted)
                                 VStack(alignment: .leading, spacing: 2) {
@@ -384,13 +385,15 @@ struct InventoryBlock: View {
     @State private var open = false
     @State private var weight = ""
     @State private var price = ""
+    @State private var unit = WeightUnit.current
+    @State private var pickedCurrency: String? = nil
     @FocusState private var focus: Field?
     enum Field { case weight, price }
 
-    private var currency: String { item.valueCurrency ?? Locale.current.currency?.identifier ?? "EUR" }
+    private var currency: String { pickedCurrency ?? item.valueCurrency ?? Locale.current.currency?.identifier ?? "EUR" }
     private var summary: String {
         var parts: [String] = []
-        if let w = item.weightKg { parts.append(w.formatted(.number.precision(.fractionLength(0...2))) + " кг") }
+        if let w = item.weightKg { parts.append(unit.summary(w)) }
         if let v = item.value { parts.append((v * Double(item.quantity)).formatted(.currency(code: currency).precision(.fractionLength(0...2)))) }
         return parts.isEmpty ? "не заполнено" : parts.joined(separator: " · ")
     }
@@ -410,9 +413,19 @@ struct InventoryBlock: View {
             .buttonStyle(.plain)
             if open {
                 Divider().padding(.leading, 16)
-                field("Вес", unit: "кг", text: $weight, f: .weight)
+                field("Вес", text: $weight, f: .weight) {
+                    UnitMenuButton(title: unit.title, options: WeightUnit.allCases, label: { $0.name }, selected: unit, enabled: editable) { u in
+                        let kgValue = parse(weight).map { $0 * unit.kg }
+                        unit = u; WeightUnit.current = u
+                        weight = u.show(kgValue)
+                    }
+                }
                 Divider().padding(.leading, 16)
-                field(item.quantity > 1 ? "Стоимость за штуку" : "Оценочная стоимость", unit: currency, text: $price, f: .price)
+                field(item.quantity > 1 ? "Стоимость за штуку" : "Оценочная стоимость", text: $price, f: .price) {
+                    UnitMenuButton(title: currency, options: InventoryCurrency.list, label: InventoryCurrency.name, selected: currency, enabled: editable) { c in
+                        pickedCurrency = c; save(force: true)
+                    }
+                }
                 Text("Необязательно. Видно только в описи для перевозчика, страховой или таможни.")
                     .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16).padding(.bottom, 12)
@@ -420,22 +433,22 @@ struct InventoryBlock: View {
         }
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
         .onAppear {
-            weight = item.weightKg.map { $0.formatted(.number.precision(.fractionLength(0...2))) } ?? ""
+            weight = unit.show(item.weightKg)
             price = item.value.map { $0.formatted(.number.precision(.fractionLength(0...2))) } ?? ""
         }
         .onChange(of: focus) { old, _ in if old != nil { save() } }
         .onDisappear { save() }
     }
 
-    private func field(_ label: String, unit: String, text: Binding<String>, f: Field) -> some View {
-        HStack(spacing: 10) {
+    private func field<U: View>(_ label: String, text: Binding<String>, f: Field, @ViewBuilder unit: () -> U) -> some View {
+        HStack(spacing: 8) {
             Text(label).font(.system(size: 16)).foregroundStyle(Theme.ink)
             Spacer()
             TextField("0", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
                 .font(.system(size: 16, weight: .semibold)).focused($focus, equals: f).disabled(!editable)
-                .padding(.horizontal, 10).frame(width: 110, height: 34)
+                .padding(.horizontal, 10).frame(width: 96, height: 34)
                 .background(editable ? Theme.bg : .clear, in: RoundedRectangle(cornerRadius: 8))
-            Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
+            unit()
         }
         .padding(.horizontal, 16).frame(minHeight: 50)
     }
@@ -445,10 +458,10 @@ struct InventoryBlock: View {
         let t = s.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")
         return t.isEmpty ? nil : Double(t)
     }
-    private func save() {
+    private func save(force: Bool = false) {
         guard editable else { return }
-        let w = parse(weight), v = parse(price)
-        guard w != item.weightKg || v != item.value else { return }
+        let w = parse(weight).map { ($0 * unit.kg * 100).rounded() / 100 }, v = parse(price)
+        guard force || w != item.weightKg || v != item.value else { return }
         Task { try? await store.updateInventory(item.id, weightKg: .some(w), value: .some(v), currency: .some(v == nil ? nil : currency)) }
     }
 }

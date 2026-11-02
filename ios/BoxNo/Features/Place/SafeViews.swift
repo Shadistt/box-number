@@ -22,14 +22,17 @@ struct SafeSetupCard: View {
         Text("Пароль сейфа").font(.system(size: 22, weight: .heavy))
         Text("Содержимое сейфа шифруется на вашем iPhone этим паролем. Мы его не знаем и не храним: забудете — содержимое сейфа будет потеряно, восстановить его нельзя.")
             .font(.subheadline).foregroundStyle(Theme.muted)
-        HStack(spacing: 8) {
-            Group {
+        Group {
                 if show { TextField("Пароль, не короче 6 символов", text: $password) }
                 else { SecureField("Пароль, не короче 6 символов", text: $password) }
             }
-            .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
-            Button { show.toggle() } label: { Image(systemName: show ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted).frame(width: 36, height: 52)
-        }
+            .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never)
+            .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+            // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
+            .overlay(alignment: .trailing) {
+                Button { show.toggle() } label: { Image(systemName: show ? "eye" : "eye.slash") }
+                    .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
+            }
         SecureField("Ещё раз", text: $repeatPassword).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
         if !repeatPassword.isEmpty, repeatPassword != password { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
         if safe.biometryAvailable {
@@ -80,11 +83,20 @@ struct SafeUnlockCard: View {
         }
         .buttonStyle(PrimaryButtonStyle()).disabled(password.isEmpty || busy).opacity(password.isEmpty ? 0.5 : 1)
         if safe.biometryEnabled {
-            Button { Task { if await safe.openWithBiometry() { onOpened() } } } label: { Label("Открыть по Face ID", systemImage: "faceid") }
+            Button {
+                Task {
+                    if await safe.openWithBiometry() { UserDefaults.standard.set(true, forKey: "safe_faceid_used"); onOpened() }
+                }
+            } label: { Label("Открыть по Face ID", systemImage: "faceid") }
                 .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink).frame(maxWidth: .infinity, minHeight: 44)
         }
         CancelButton(action: close)
-            .task { if safe.biometryEnabled, await safe.openWithBiometry() { onOpened() } else { focused = true } }
+            // Face ID сам не запускаем, пока человек хоть раз не открыл сейф им вручную (02.11.2026):
+            // системный запрос «Разрешить Face ID?» не должен выскакивать сразу при первом открытии сейфа.
+            .task {
+                if safe.biometryEnabled, UserDefaults.standard.bool(forKey: "safe_faceid_used"), await safe.openWithBiometry() { onOpened() }
+                else { focused = true }
+            }
     }
 
     private func open() async {
@@ -139,14 +151,17 @@ struct SafePasswordChangeCard: View {
             Text("Нужен текущий пароль. Если вы его забыли — сменить нельзя: без него содержимое сейфа не расшифровать.")
                 .font(.subheadline).foregroundStyle(Theme.muted)
             SecureField("Текущий пароль сейфа", text: $current).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
-            HStack(spacing: 8) {
-                Group {
+            Group {
                     if showNew { TextField("Новый пароль, не короче 6 символов", text: $new) }
                     else { SecureField("Новый пароль, не короче 6 символов", text: $new) }
                 }
-                .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never).fieldStyle().colorScheme(.light)
-                Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }.foregroundStyle(Theme.muted).frame(width: 36, height: 52)
-            }
+                .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never)
+                .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+                // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
+                .overlay(alignment: .trailing) {
+                    Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }
+                        .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
+                }
             SecureField("Ещё раз", text: $repeatNew).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }

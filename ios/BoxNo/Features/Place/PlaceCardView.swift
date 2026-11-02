@@ -165,7 +165,7 @@ struct PlaceCardView: View {
         } else {
             // Пустое состояние: значок типа + номер; кнопка — только тем, кто может менять.
             VStack(spacing: 6) {
-                Image(systemName: place.kind.symbol).font(.system(size: 30, weight: .semibold))
+                KindIcon(kind: place.kind, size: 30, weight: .semibold)
                 Text(place.number).font(.system(size: 56, weight: .black, design: .rounded)).lineLimit(1).minimumScaleFactor(0.5)
                 if contentEditable {
                     Text("Сфотографируйте номер на коробке —\nтак её легче узнать в списке")
@@ -234,7 +234,7 @@ struct PlaceCardView: View {
                     HStack(spacing: 8) {
                         Text("Тип места").font(.system(size: 16)).foregroundStyle(Theme.ink)
                         Spacer()
-                        Image(systemName: place.kind.symbol).foregroundStyle(Theme.ink)
+                        KindIcon(kind: place.kind).foregroundStyle(Theme.ink)
                         Text(place.kindTitle).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
                         if contentEditable && !isSafe { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted) }
                     }
@@ -329,10 +329,12 @@ struct PlaceInventoryBlock: View {
     @State private var width = ""
     @State private var height = ""
     @State private var price = ""
+    @State private var unit = WeightUnit.current
+    @State private var pickedCurrency: String? = nil
     @FocusState private var focus: Field?
     enum Field { case weight, length, width, height, price }
 
-    private var currency: String { place.valueCurrency ?? Locale.current.currency?.identifier ?? "EUR" }
+    private var currency: String { pickedCurrency ?? place.valueCurrency ?? Locale.current.currency?.identifier ?? "EUR" }
     private var items: [Item] { store.items(of: place.id) }
     private var itemsValue: Double? {
         let priced = items.compactMap { i in i.value.map { $0 * Double(i.quantity) } }
@@ -342,7 +344,7 @@ struct PlaceInventoryBlock: View {
     private func money(_ v: Double) -> String { v.formatted(.currency(code: currency).precision(.fractionLength(0...2))) }
     private var summary: String {
         var parts: [String] = []
-        if let w = place.weightKg { parts.append(w.formatted(.number.precision(.fractionLength(0...2))) + " кг") }
+        if let w = place.weightKg { parts.append(unit.summary(w)) }
         if let v = place.value ?? itemsValue { parts.append((place.value == nil ? "≈ " : "") + money(v)) }
         return parts.isEmpty ? "не заполнено" : parts.joined(separator: " · ")
     }
@@ -367,7 +369,14 @@ struct PlaceInventoryBlock: View {
             .buttonStyle(.plain)
             if open {
                 Divider().padding(.leading, 16)
-                row("Вес места") { numField($weight, .weight, width: 90); unit("кг") }
+                row("Вес места") {
+                    numField($weight, .weight, width: 90)
+                    UnitMenuButton(title: unit.title, options: WeightUnit.allCases, label: { $0.name }, selected: unit, enabled: editable) { u in
+                        let kgValue = parse(weight).map { $0 * unit.kg }
+                        unit = u; WeightUnit.current = u
+                        weight = u.show(kgValue)
+                    }
+                }
                 Divider().padding(.leading, 16)
                 row("Размер, см") {
                     HStack(spacing: 4) {
@@ -377,7 +386,7 @@ struct PlaceInventoryBlock: View {
                     }
                 }
                 if let volumetric {
-                    Text("Объёмный вес ≈ \(volumetric.formatted(.number.precision(.fractionLength(0...1)))) кг (делитель 5000) — для перевозчика.")
+                    Text("Объёмный вес ≈ \(unit.summary(volumetric)) (делитель 5000) — для перевозчика.")
                         .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16).padding(.bottom, 10)
                 }
@@ -388,7 +397,10 @@ struct PlaceInventoryBlock: View {
                 }
                 Divider().padding(.leading, 16)
                 row("Своя стоимость места") {
-                    numField($price, .price, width: 110); unit(currency)
+                    numField($price, .price, width: 96)
+                    UnitMenuButton(title: currency, options: InventoryCurrency.list, label: InventoryCurrency.name, selected: currency, enabled: editable) { c in
+                        pickedCurrency = c; save(forceCurrency: true)
+                    }
                     if !price.isEmpty && editable {
                         Button { price = ""; save() } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }.buttonStyle(.plain)
                     }
@@ -430,7 +442,7 @@ struct PlaceInventoryBlock: View {
 
     private func fmt(_ d: Double?) -> String { d.map { $0.formatted(.number.precision(.fractionLength(0...2)).grouping(.never)) } ?? "" }
     private func load() {
-        weight = fmt(place.weightKg); price = fmt(place.value)
+        weight = unit.show(place.weightKg); price = fmt(place.value)
         length = place.lengthCm.map(String.init) ?? ""; width = place.widthCm.map(String.init) ?? ""; height = place.heightCm.map(String.init) ?? ""
     }
     private func parse(_ s: String) -> Double? {
@@ -442,19 +454,19 @@ struct PlaceInventoryBlock: View {
         return v
     }
 
-    private func save() {
+    private func save(forceCurrency: Bool = false) {
         guard editable else { return }
         var patch: [String: AnyJSON] = [:]
         func put<T: Equatable>(_ key: String, _ new: T?, _ old: T?, _ json: (T) -> AnyJSON) {
             if new != old { patch[key] = new.map(json) ?? .null }
         }
-        put("weight_kg", parse(weight), place.weightKg) { .double($0) }
+        put("weight_kg", parse(weight).map { ($0 * unit.kg * 100).rounded() / 100 }, place.weightKg) { .double($0) }
         put("length_cm", parseInt(length), place.lengthCm) { .integer($0) }
         put("width_cm", parseInt(width), place.widthCm) { .integer($0) }
         put("height_cm", parseInt(height), place.heightCm) { .integer($0) }
         let v = parse(price)
         put("value", v, place.value) { .double($0) }
-        if v != nil, place.valueCurrency == nil { patch["value_currency"] = .string(currency) }
+        if v != nil, place.valueCurrency == nil || forceCurrency { patch["value_currency"] = .string(currency) }
         guard !patch.isEmpty else { return }
         Task { try? await store.patchPlace(place.id, patch) }
     }

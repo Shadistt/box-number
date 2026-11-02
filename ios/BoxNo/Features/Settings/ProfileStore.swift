@@ -229,7 +229,7 @@ struct AvatarView: View {
             } else {
                 let p = AvatarPreset.named(profile?.avatar ?? "preset:box")
                 p.color
-                Image(systemName: p.symbol).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(Theme.onInk)
+                Image(systemName: p.symbol).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(.white)
             }
         }
         .frame(width: size, height: size).clipShape(Circle())

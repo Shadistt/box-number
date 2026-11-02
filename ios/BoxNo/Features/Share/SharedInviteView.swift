@@ -19,7 +19,7 @@ struct SharedInviteView: View {
             VStack(spacing: 20) {
                 Spacer()
                 if let place {
-                    Image(systemName: place.kind.symbol).font(.system(size: 34, weight: .semibold))
+                    KindIcon(kind: place.kind, size: 34, weight: .semibold)
                         .frame(width: 96, height: 96).background(Theme.tile, in: RoundedRectangle(cornerRadius: 22))
                     Text("\(place.ownerName ?? "Вам") \(place.ownerName == nil ? "открыли" : "поделился(ась)") \(place.kind.numberLabel.lowercased()) № \(place.number)")
                         .font(.system(size: 24, weight: .heavy)).multilineTextAlignment(.center)

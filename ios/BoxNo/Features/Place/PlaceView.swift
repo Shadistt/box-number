@@ -435,11 +435,11 @@ struct PlacePhotoViewer: View {
             VStack {
                 HStack {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.onInk)
+                        Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
                             .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
                     }
                     Spacer()
-                    Text("\(place.kind.numberLabel) № \(place.number)").font(.headline).foregroundStyle(Theme.onInk)
+                    Text("\(place.kind.numberLabel) № \(place.number)").font(.headline).foregroundStyle(.white)
                     Spacer()
                     Color.clear.frame(width: 44, height: 44)
                 }
@@ -448,7 +448,7 @@ struct PlacePhotoViewer: View {
                 if editable {
                     HStack(spacing: 12) {
                         Button(action: onReplace) { Label("Заменить", systemImage: "camera") }
-                            .buttonStyle(PrimaryButtonStyle(fill: Theme.card.opacity(0.15), ink: Theme.onInk))
+                            .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .white))
                         Button(action: onDelete) { Label("Удалить", systemImage: "trash") }
                             .buttonStyle(PrimaryButtonStyle(fill: Theme.card.opacity(0.15), ink: .red))
                     }

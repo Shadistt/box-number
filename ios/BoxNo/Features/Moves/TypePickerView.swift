@@ -24,7 +24,7 @@ struct TypePickerView: View {
                             else { onPick(kind, nil); dismiss() }
                         } label: {
                             VStack(alignment: .leading, spacing: 10) {
-                                Image(systemName: kind.symbol).font(.system(size: 30, weight: .medium))
+                                KindIcon(kind: kind, size: 30, weight: .medium)
                                     .frame(height: 40)
                                 Spacer(minLength: 0)
                                 Text(kind.title).font(.system(size: 16, weight: .bold))

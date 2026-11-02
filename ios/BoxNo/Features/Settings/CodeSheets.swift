@@ -80,15 +80,16 @@ struct PasswordCard: View {
                 SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle().colorScheme(.light)
             }
             // Поля пароля всегда в светлой схеме: автозаполнение iOS красит поле жёлтым, и в тёмной теме светлый текст пропадал.
-            HStack(spacing: 8) {
-                Group {
-                    if showNew { TextField("Новый пароль, не короче 8 символов", text: $new) }
-                    else { SecureField("Новый пароль, не короче 8 символов", text: $new) }
-                }
-                .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never)
-                .fieldStyle().colorScheme(.light)
+            Group {
+                if showNew { TextField("Новый пароль, не короче 8 символов", text: $new) }
+                else { SecureField("Новый пароль, не короче 8 символов", text: $new) }
+            }
+            .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never)
+            .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+            // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
+            .overlay(alignment: .trailing) {
                 Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }
-                    .foregroundStyle(Theme.muted).frame(width: 36, height: 52)
+                    .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
             }
             SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle().colorScheme(.light)
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }

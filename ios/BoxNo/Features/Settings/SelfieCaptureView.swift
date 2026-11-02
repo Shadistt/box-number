@@ -24,7 +24,7 @@ struct SelfieCaptureView: View {
                         Text("Нет доступа к камере").font(.headline).foregroundStyle(.white)
                         Button("Открыть настройки") {
                             if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
-                        }.buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.ink)).padding(.horizontal, 60)
+                        }.buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.dark)).padding(.horizontal, 60)
                     }
                 } else {
                     SelfiePreview(session: cam.session).ignoresSafeArea()
@@ -56,7 +56,7 @@ struct SelfieCaptureView: View {
                             Button("Переснять") { self.shot = nil; cam.start() }
                                 .buttonStyle(PrimaryButtonStyle(fill: .white.opacity(0.15), ink: .white))
                             Button("Использовать") { onPick(shot); dismiss() }
-                                .buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.ink))
+                                .buttonStyle(PrimaryButtonStyle(fill: .white, ink: Theme.dark))
                         }
                         .padding(.horizontal, 24).padding(.bottom, 36)
                     } else {

@@ -215,7 +215,7 @@ struct PlacesView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Button { open = PlaceRef(id: p.id) } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: p.kind.symbol).font(.system(size: 18, weight: .semibold))
+                            KindIcon(kind: p.kind, size: 18, weight: .semibold)
                             Text(highlight("№ \(p.number) · \(p.displayTitle)", query)).font(.system(size: 16, weight: .bold)).lineLimit(1)
                             Spacer()
                             Text(Plural.things(its.count)).font(.footnote).foregroundStyle(Theme.muted)
@@ -299,7 +299,7 @@ struct PlaceTile: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     VStack {
-                        Image(systemName: place.kind.symbol).font(.system(size: 26, weight: .medium))
+                        KindIcon(kind: place.kind, size: 26, weight: .medium)
                         Text(place.number).font(.system(size: 40, weight: .heavy, design: .rounded))
                     }
                     .foregroundStyle(place.status == .packed ? .white : Theme.ink)
