@@ -89,7 +89,8 @@ struct PlaceCardView: View {
             }
             .task(id: "\(place?.numberPhoto ?? "")-\(changes.version)") {
                 guard let place, place.numberPhoto != nil else { photo = nil; return }
-                photo = await PhotoStore.image(forPlace: place, thumb: false)
+                if photo == nil { photo = await PhotoStore.image(forPlace: place, thumb: true) }   // сначала миниатюра
+                if let big = await PhotoStore.image(forPlace: place, thumb: false) { photo = big }
             }
             .task {
                 // Сейф: содержимое зашифровано и в подсказки не идёт.

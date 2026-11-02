@@ -23,7 +23,12 @@ struct ItemThumb: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: size.map { $0 * 0.25 } ?? 16))
-        .task(id: "\(item.id)-\(changes.version)") { image = await PhotoStore.image(for: item, thumb: !full) }
+        .task(id: "\(item.id)-\(changes.version)") {
+            guard full else { image = await PhotoStore.image(for: item, thumb: true); return }
+            // Крупно (02.11.2026): сразу миниатюра (она почти всегда уже на телефоне), крупное фото подменяет её, когда скачается.
+            if image == nil { image = await PhotoStore.image(for: item, thumb: true) }
+            if let big = await PhotoStore.image(for: item, thumb: false) { withAnimation(.easeOut(duration: 0.2)) { image = big } }
+        }
     }
 }
 

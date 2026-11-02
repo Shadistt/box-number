@@ -456,6 +456,9 @@ struct PlacePhotoViewer: View {
                 }
             }
         }
-        .task { image = await PhotoStore.image(forPlace: place, thumb: false) }
+        .task {
+            image = await PhotoStore.image(forPlace: place, thumb: true)          // сначала миниатюра
+            if let big = await PhotoStore.image(forPlace: place, thumb: false) { image = big }
+        }
     }
 }
