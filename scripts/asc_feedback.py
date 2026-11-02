@@ -37,6 +37,14 @@ print(f"\n== Отчёты о сбоях: {len(crashes['data'])}")
 for i, c in enumerate(crashes["data"], 1):
     a = c["attributes"]
     print(f"#{i} {a.get('createdDate')} · {a.get('deviceModel')} iOS {a.get('osVersion')} · {a.get('comment')}")
+    if i <= 3:   # текст сбоя для свежих — кладём в feedback/crash-N.txt
+        try:
+            log = get(f"/v1/betaFeedbackCrashSubmissions/{c['id']}/crashLog")
+            text = (log.get("data") or {}).get("attributes", {}).get("logText") or ""
+            (out / f"crash-{i}.txt").write_text(text)
+            print(f"    лог: feedback/crash-{i}.txt ({len(text)} символов)")
+        except Exception as e:
+            print("    лог недоступен:", e)
 
 # ---- сертификаты (чтобы видеть, что накопил CI) ----
 certs = get("/v1/certificates", **{"limit": 200})
