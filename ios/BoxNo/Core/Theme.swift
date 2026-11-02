@@ -13,7 +13,9 @@ enum Theme {
     static let card = dyn(0xFFFFFF, 0x1E1F23)
     static let fill = dyn(0xE4E2DC, 0x2A2B30)       // сегменты, вторичные кнопки
     static let tile = dyn(0xE8E6E0, 0x2A2B30)       // фон плитки места
-    static let dark = Color(hex: 0x16171A)          // всегда тёмное: карточки переездов, плашка «запаковано»
+    static let dark = Color(hex: 0x16171A)          // всегда тёмное: плашка «запаковано»
+    /// Карточка переезда: в светлой теме — тёмная, в тёмной — заметно светлее фона (иначе сливалась, 31.10 отзыв).
+    static let moveCard = dyn(0x16171A, 0x2A2B31)
     static let radius: CGFloat = 16
 
     private static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {

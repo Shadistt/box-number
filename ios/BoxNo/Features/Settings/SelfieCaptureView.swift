@@ -60,7 +60,7 @@ struct SelfieCaptureView: View {
                         }
                         .padding(.horizontal, 24).padding(.bottom, 36)
                     } else {
-                        Button { Task { await take() } } label: {
+                        Button { Task { await take(circle: d) } } label: {
                             ZStack {
                                 Circle().strokeBorder(.white, lineWidth: 4).frame(width: 78, height: 78)
                                 Circle().fill(.white).frame(width: 64, height: 64).scaleEffect(busy ? 0.85 : 1)
@@ -78,9 +78,27 @@ struct SelfieCaptureView: View {
         .onDisappear { cam.stop() }
     }
 
-    private func take() async {
+    private func take(circle d: CGFloat) async {
         busy = true; defer { busy = false }
-        if let img = try? await cam.capture() { withAnimation(.snappy) { shot = img }; cam.stop() }
+        if let img = try? await cam.capture() { withAnimation(.snappy) { shot = Self.crop(img, circle: d) }; cam.stop() }
+    }
+
+    /// В снимок попадает ровно то, что было в круге (02.11.2026): превью растянуто на весь экран (aspect fill),
+    /// а камера снимает кадр шире — раньше в результат попадал весь кадр и лицо «уменьшалось».
+    static func crop(_ image: UIImage, circle d: CGFloat) -> UIImage {
+        let screen = UIScreen.main.bounds.size
+        let fmt = UIGraphicsImageRendererFormat.default(); fmt.scale = 1
+        // 1) поворачиваем по EXIF (UIImage.size уже в «смотровой» ориентации)
+        let upright = UIGraphicsImageRenderer(size: image.size, format: fmt).image { _ in image.draw(at: .zero) }
+        let w = upright.size.width, h = upright.size.height
+        let scale = max(screen.width / w, screen.height / h)          // как .resizeAspectFill
+        let side = d / scale
+        let rect = CGRect(x: w / 2 - side / 2, y: h / 2 - side / 2, width: side, height: side)
+            .intersection(CGRect(x: 0, y: 0, width: w, height: h))
+        guard rect.width > 10 else { return image }
+        return UIGraphicsImageRenderer(size: rect.size, format: fmt).image { _ in
+            upright.draw(at: CGPoint(x: -rect.minX, y: -rect.minY))
+        }
     }
 }
 

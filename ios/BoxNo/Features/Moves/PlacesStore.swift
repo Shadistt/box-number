@@ -36,7 +36,7 @@ final class PlacesStore {
             if ids.isEmpty { items = [:] } else {
                 let all: [Item] = try await supabase.from("items").select(Item.columns)
                     .in("place_id", values: ids).is("deleted_at", value: nil)
-                    .order("position").order("created_at").execute().value
+                    .order("position", ascending: false).order("created_at", ascending: false).execute().value   // новые сверху (02.11.2026)
                 items = Dictionary(grouping: all, by: \.placeId)
                 struct PA: Decodable { let placeId: UUID; let userId: UUID?; enum CodingKeys: String, CodingKey { case placeId = "place_id", userId = "user_id" } }
                 if let pa: [PA] = try? await supabase.from("place_access").select("place_id,user_id").in("place_id", values: ids).eq("status", value: "active").execute().value {
@@ -144,7 +144,7 @@ final class PlacesStore {
         ]
         if isSafe(placeId) { row["title"] = .string(""); row["title_enc"] = .string(try SafeSession.shared.encrypt(title)) }
         let item: Item = try await supabase.from("items").insert(row).select(Item.columns).single().execute().value
-        items[placeId, default: []].append(item)
+        items[placeId, default: []].insert(item, at: 0)   // новые сверху
         return item
     }
 
@@ -198,7 +198,7 @@ final class PlacesStore {
     private func replaceItem(_ item: Item) {
         for key in items.keys { items[key]?.removeAll { $0.id == item.id } }
         items[item.placeId, default: []].append(item)
-        items[item.placeId]?.sort { ($0.position, $0.createdAt) < ($1.position, $1.createdAt) }
+        items[item.placeId]?.sort { ($0.position, $0.createdAt) > ($1.position, $1.createdAt) }   // новые сверху
     }
 }
 

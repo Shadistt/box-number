@@ -77,7 +77,7 @@ struct FamilyView: View {
             Button("Убрать из семьи", role: .destructive) { if let m = confirmRemove { Task { await access.removeFromFamily(m); flash("\(access.name(m)) больше не в семье") } } }
             Button("Отмена", role: .cancel) {}
         } message: { Text("Потеряет доступ к общим местам и перестанет видеть новые. Собственные места останутся.") }
-        .sheet(isPresented: $invite) { InviteFamilyView { n in Task { await access.loadFamily() }; if n > 0 { flash(n == 1 ? "Приглашение отправлено" : "Отправлено приглашений: \(n)") } } }
+        .fullScreenCover(isPresented: $invite) { InviteFamilyView { n in Task { await access.loadFamily() }; if n > 0 { flash(n == 1 ? "Приглашение отправлено" : "Отправлено приглашений: \(n)") } } }
         .overlay(alignment: .bottom) {
             if let toast {
                 Text(toast).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.onInk)

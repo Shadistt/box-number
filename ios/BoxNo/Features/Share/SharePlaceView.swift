@@ -174,7 +174,7 @@ struct SharePlaceView: View {
                 Button("Закрыть доступ", role: .destructive) { if let r = confirmRemove { Task { await remove(r) } } }
                 Button("Отмена", role: .cancel) {}
             }
-            .sheet(isPresented: $addPeople) {
+            .fullScreenCover(isPresented: $addPeople) {
                 SharePeopleView(placeId: placeId, placeTitle: place.map { "\($0.kind.numberLabel) № \($0.number) · \($0.displayTitle)" } ?? "", existing: rows.compactMap(\.userId)) { added in
                     Task { rows = await access.placeAccess(placeId) }
                     if added > 0 { flash(added == 1 ? "1 человек теперь видит место" : "\(added.people) теперь видят место") }

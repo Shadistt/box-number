@@ -196,11 +196,11 @@ struct MoveCard: View {
                     // Мой переезд открыт другим: стопка аватарок до трёх + «+N» (как у общих мест).
                     HStack(spacing: -8) {
                         ForEach(members.prefix(3), id: \.userId) { p in
-                            PersonAvatar(person: p.person, size: 28).overlay(Circle().stroke(Theme.dark, lineWidth: 2))
+                            PersonAvatar(person: p.person, size: 28).overlay(Circle().stroke(Theme.moveCard, lineWidth: 2))
                         }
                         if members.count > 3 {
                             Text("+\(members.count - 3)").font(.system(size: 11, weight: .heavy)).frame(width: 28, height: 28)
-                                .background(Color(white: 0.33), in: Circle()).overlay(Circle().stroke(Theme.dark, lineWidth: 2))
+                                .background(Color(white: 0.33), in: Circle()).overlay(Circle().stroke(Theme.moveCard, lineWidth: 2))
                         }
                     }
                     .accessibilityLabel("Переезд видят: " + members.map(\.person.name).joined(separator: ", "))
@@ -214,7 +214,7 @@ struct MoveCard: View {
                     ForEach(destinations.prefix(3)) { d in
                         Label(d.name, systemImage: "mappin").font(.caption.weight(.semibold)).lineLimit(1)
                             .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(.white.opacity(0.12), in: Capsule())
+                            .background(.white.opacity(0.16), in: Capsule())
                             .layoutPriority(1)
                     }
                     if destinations.count > 3 {
@@ -240,7 +240,7 @@ struct MoveCard: View {
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.dark, in: RoundedRectangle(cornerRadius: 18))
+        .background(Theme.moveCard, in: RoundedRectangle(cornerRadius: 18))
         .foregroundStyle(.white)
     }
 }
