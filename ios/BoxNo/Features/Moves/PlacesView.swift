@@ -95,7 +95,16 @@ struct PlacesView: View {
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
-        .sheet(isPresented: $showWhoSees) { MoveFamilyView(move: store.move, placesCount: store.places.count) }
+        .sheet(isPresented: $showWhoSees) {
+            // Владелец управляет доступом; участнику — только список, кто в переезде, и «Убрать из моего списка».
+            if isOwner { MoveFamilyView(move: store.move, destinations: store.destinations, placesCount: store.places.count) }
+            else {
+                MoveParticipantsView(move: store.move, destinations: store.destinations, placesCount: store.places.count) {
+                    showWhoSees = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { withAnimation(.snappy) { confirmDelete = true } }
+                }
+            }
+        }
         // Удаление — только с подтверждением, нижней карточкой, как остальные подтверждения в приложении.
         .overlay {
             if confirmDelete {

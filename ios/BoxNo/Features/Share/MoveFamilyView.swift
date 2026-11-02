@@ -1,9 +1,11 @@
 import SwiftUI
+import Supabase
 
 /// §9 «Кто видит переезд» (макет MoveFamily): семья с переключателем на каждого, роль у включённых,
 /// «ждём» у приглашённых; «Добавить нового» — email → в семью и сразу в этот переезд.
 struct MoveFamilyView: View {
     let move: Move
+    var destinations: [MoveDestination] = []
     let placesCount: Int
     @Environment(\.dismiss) private var dismiss
     @State private var access = AccessStore.shared
@@ -22,7 +24,7 @@ struct MoveFamilyView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("\(move.displayTitle(destinations: [])) · \(Plural.places(placesCount)). Только для этого переезда: другие переезды не затрагиваются.")
+                    Text("\(move.displayTitle(destinations: destinations)) · \(Plural.places(placesCount)). Только для этого переезда: другие переезды не затрагиваются.")
                         .font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
 
                     SectionTitle(loaded ? "Семья · \(onCount) из \(access.others.count) видят" : "Семья")
@@ -157,4 +159,89 @@ struct MoveFamilyView: View {
         } catch { flash("Не получилось: \(error.localizedDescription)") }
     }
     private func flash(_ t: String) { toast = t; Task { try? await Task.sleep(for: .seconds(2.5)); if toast == t { toast = nil } } }
+}
+
+
+/// «Кто видит переезд» для участника чужого переезда (02.11.2026): только просмотр — владелец, я, остальные участники.
+/// Доступом управляет владелец; моя семья тут ни при чём, поэтому её список не показываем.
+struct MoveParticipantsView: View {
+    let move: Move
+    var destinations: [MoveDestination] = []
+    let placesCount: Int
+    let onLeave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var people: [MovePerson] = []
+    @State private var myRole: String? = nil
+    @State private var loaded = false
+
+    private var owner: MovePerson? { people.first { $0.isOwner } }
+    private var others: [MovePerson] { people.filter { !$0.isOwner } }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("\(move.displayTitle(destinations: destinations)) · \(Plural.places(placesCount)).")
+                        .font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+                    SectionTitle(loaded ? "В переезде · \(people.count + 1)" : "В переезде")
+                    SettingsCard {
+                        if !loaded {
+                            ProgressView().frame(maxWidth: .infinity).padding(20)
+                        } else {
+                            if let owner { row(owner.person, subtitle: owner.person.email ?? "", badge: "Владелец") }
+                            Divider().padding(.leading, 68)
+                            HStack(spacing: 12) {
+                                PersonAvatar(person: AccessStore.shared.person(AccessStore.shared.me), fallback: "Я")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Вы").font(.system(size: 16, weight: .semibold))
+                                    Text(myRole == "edit" ? "видите и редактируете" : "только смотрите").font(.footnote).foregroundStyle(Theme.muted)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            ForEach(others, id: \.userId) { p in
+                                Divider().padding(.leading, 68)
+                                row(p.person, subtitle: p.role == "edit" ? "видит и редактирует" : "только смотрит", badge: nil)
+                            }
+                        }
+                    }
+                    Text("Кто видит переезд, решает владелец\(owner.map { " — \($0.person.name)" } ?? ""). Если переезд вам больше не нужен, уберите его из своего списка — у владельца он останется.")
+                        .font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+                    Button(role: .destructive) { onLeave() } label: { Label("Убрать из моего списка", systemImage: "rectangle.portrait.and.arrow.right") }
+                        .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
+                }
+                .padding(16)
+            }
+            .background(Theme.bg)
+            .navigationTitle("Кто видит переезд").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { dismiss() } } }
+            .task {
+                if let rows: [MovePerson] = try? await supabase.rpc("move_people").execute().value {
+                    people = rows.filter { $0.moveId == move.id }
+                }
+                struct R: Decodable { let role: String }
+                if let me = AccessStore.shared.me,
+                   let r: [R] = try? await supabase.from("move_access").select("role").eq("move_id", value: move.id).eq("user_id", value: me).eq("status", value: "active").execute().value {
+                    myRole = r.first?.role
+                }
+                loaded = true
+            }
+        }
+    }
+
+    private func row(_ p: Person, subtitle: String, badge: String?) -> some View {
+        HStack(spacing: 12) {
+            PersonAvatar(person: p)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(p.name).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                Text(subtitle).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            Spacer()
+            if let badge {
+                Text(badge).font(.footnote.weight(.semibold)).padding(.horizontal, 10).frame(height: 28)
+                    .background(Theme.fill, in: Capsule())
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+    }
 }
