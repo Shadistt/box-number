@@ -5,8 +5,8 @@ import SwiftUI
 struct BoxTileView: View {
     let place: Place
     var size: CGFloat = 120
-    /// Показывать мини-камеру (намёк «можно добавить фото») — на экране места, не в сетке.
-    var cameraHint = false
+    /// Карандаш в углу (вариант A, 02.11.2026): «нажмите, чтобы изменить место». Только на экране места и только с правом edit.
+    var editHint = false
     @State private var photo: UIImage? = nil
     @State private var changes = PhotoStore.Changes.shared
 
@@ -29,14 +29,27 @@ struct BoxTileView: View {
             } else if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
         }
         .frame(width: size, height: size)
+        // Пометки §13 в сетке: бейдж в правом верхнем углу (на экране места они чипами в шапке).
+        .overlay(alignment: .topTrailing) {
+            if !editHint && (place.isFragile || place.opensFirst) {
+                HStack(spacing: 3) {
+                    if place.opensFirst { Image(systemName: "1.circle.fill") }
+                    if place.isFragile { Image(systemName: "wineglass.fill") }
+                }
+                .font(.system(size: max(11, size * 0.1), weight: .bold)).foregroundStyle(.white)
+                .padding(.horizontal, 6).frame(height: max(20, size * 0.17))
+                .background(Theme.accent, in: Capsule()).padding(5)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
-            if cameraHint && photo == nil {
-                // Как иконка селфи в настройках: подсказка, что сюда можно положить фото коробки.
-                Image(systemName: "camera.fill").font(.system(size: size * 0.12, weight: .semibold))
-                    .frame(width: size * 0.26, height: size * 0.26)
+            if editHint {
+                // Как Spotify / Alta «Edit profile»: круглый карандаш с обводкой цвета фона.
+                Image(systemName: "pencil").font(.system(size: size * 0.13, weight: .bold))
+                    .frame(width: size * 0.28, height: size * 0.28)
                     .background(packed ? Theme.card : Theme.ink, in: Circle())
+                    .overlay(Circle().stroke(Theme.bg, lineWidth: 3))
                     .foregroundStyle(packed ? Theme.dark : Theme.onInk)
-                    .offset(x: 4, y: 4)
+                    .offset(x: 6, y: 6)
             }
         }
         .animation(.spring(duration: 0.55, bounce: 0.25), value: packed)

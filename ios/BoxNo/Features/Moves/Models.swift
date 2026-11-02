@@ -40,11 +40,25 @@ struct Place: Codable, Identifiable, Hashable {
     var numberPhoto: String?
     var shared: Bool
     var createdAt: Date
-    enum CodingKeys: String, CodingKey { case id, number, title, kind, status, shared
+    // Карточка места (02.11.2026): пометки §13 и «Для описи». Опциональные — старый кэш и RPC без этих полей декодируются.
+    var fragile: Bool?
+    var openFirst: Bool?
+    var weightKg: Double?
+    var lengthCm: Int?
+    var widthCm: Int?
+    var heightCm: Int?
+    /// Своя стоимость места; nil — в итог идёт сумма по вещам.
+    var value: Double?
+    var valueCurrency: String?
+    enum CodingKeys: String, CodingKey { case id, number, title, kind, status, shared, fragile, value
         case moveId = "move_id", customKind = "custom_kind", destinationId = "destination_id"
-        case packedAt = "packed_at", unpackedAt = "unpacked_at", numberPhoto = "number_photo", createdAt = "created_at" }
+        case packedAt = "packed_at", unpackedAt = "unpacked_at", numberPhoto = "number_photo", createdAt = "created_at"
+        case openFirst = "open_first", weightKg = "weight_kg", lengthCm = "length_cm", widthCm = "width_cm", heightCm = "height_cm", valueCurrency = "value_currency" }
 
-    static let columns = "id,move_id,number,title,kind,custom_kind,destination_id,status,packed_at,unpacked_at,number_photo,shared,created_at"
+    static let columns = "id,move_id,number,title,kind,custom_kind,destination_id,status,packed_at,unpacked_at,number_photo,shared,created_at,fragile,open_first,weight_kg,length_cm,width_cm,height_cm,value,value_currency"
+
+    var isFragile: Bool { fragile ?? false }
+    var opensFirst: Bool { openFirst ?? false }
 
     /// «Коробка № 19», «Свой вариант: Велосипед»
     var kindTitle: String { kind == .custom ? (customKind ?? "Свой вариант") : kind.title }

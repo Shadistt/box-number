@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Supabase
 
 /// Экран места (ТЗ §7): плитка-иконка, название, плашка статуса (B), Фото / Список, живая камера, вещи, меню «…».
 struct PlaceView: View {
@@ -12,6 +13,8 @@ struct PlaceView: View {
     @State private var showCamera = false
     @State private var showDest = false
     @State private var showEdit = false
+    /// Роль на это место (place_role): «edit» — карандаш на плитке и правки в карточке места.
+    @State private var canEdit = false
     @State private var showShare = false
     @State private var confirmDelete = false
     @State private var lockDialog: LockDialog? = nil
@@ -93,7 +96,14 @@ struct PlaceView: View {
         .onChange(of: showCamera) { _, on in if !on { CameraModel.shared.start() } }
         .fullScreenCover(isPresented: $showCamera) { CameraView(store: store, placeId: placeId) }
         .sheet(isPresented: $showDest) { DestinationPickerView(store: store, placeId: placeId) }
-        .sheet(isPresented: $showEdit) { EditPlaceView(store: store, placeId: placeId) }
+        .sheet(isPresented: $showEdit) { PlaceCardView(store: store, placeId: placeId, canEdit: canEdit) { dismiss() } }
+        .task {
+            struct P: Encodable { let p_move: UUID; let p_place: UUID }
+            guard let p = place else { return }
+            let role: String? = try? await supabase.rpc("place_role", params: P(p_move: p.moveId, p_place: p.id)).execute().value
+            canEdit = role == "edit"
+        }
+        .onChange(of: place?.title) { _, new in if !titleFocused { title = new ?? "" } }
         .confirmationDialog("Фото места", isPresented: $placePhotoMenu, titleVisibility: .hidden) {
             Button("Снять фото места") { placeCamera = true }
             Button("Выбрать из галереи") { showPlacePicker = true }
@@ -174,10 +184,10 @@ struct PlaceView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 14) {
                     Button {
-                        // Есть фото места — открываем крупно; нет — предлагаем снять. У сейфа фото места нет.
-                        if isSafe { return }
-                        if place.numberPhoto != nil { placePhotoViewer = true } else if editable { placePhotoMenu = true }
-                    } label: { BoxTileView(place: place, size: 112, cameraHint: editable && !isSafe) }.buttonStyle(.plain)
+                        // Карточка места (02.11.2026): фото, подпись, номер и тип, пометки, опись.
+                        titleFocused = false
+                        showEdit = true
+                    } label: { BoxTileView(place: place, size: 112, editHint: canEdit) }.buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 6) {
                         TextField("Без названия", text: $title)   // тип и так в чипах ниже; «Чемодан или сумка без названия» не влезало
                             .font(.system(size: 22, weight: .heavy)).lineLimit(1)
@@ -191,6 +201,8 @@ struct PlaceView: View {
                                     .padding(.horizontal, 9).frame(height: 24)
                                     .background(Theme.card, in: Capsule())
                             }
+                            if place.isFragile { PlaceFlagChip(kind: .fragile).frame(height: 24) }
+                            if place.opensFirst { PlaceFlagChip(kind: .openFirst).frame(height: 24) }
                         }
                     }
                     .padding(.top, 8)

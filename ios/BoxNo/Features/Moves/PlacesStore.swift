@@ -100,6 +100,14 @@ final class PlacesStore {
         }
     }
 
+    /// Пометки и «Для описи» места: произвольный набор колонок, ответ сервера заменяет место в списке.
+    func patchPlace(_ id: UUID, _ patch: [String: AnyJSON]) async throws {
+        guard !patch.isEmpty else { return }
+        let updated: Place = try await supabase.from("places").update(patch).eq("id", value: id.uuidString)
+            .select(Place.columns).single().execute().value
+        if let i = places.firstIndex(where: { $0.id == id }) { places[i] = updated }
+    }
+
     func deletePlace(_ id: UUID) async throws {
         try await supabase.from("places").update(["deleted_at": AnyJSON.string(ISO8601DateFormatter().string(from: Date()))])
             .eq("id", value: id.uuidString).execute()
