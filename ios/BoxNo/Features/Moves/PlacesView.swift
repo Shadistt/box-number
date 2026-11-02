@@ -10,6 +10,8 @@ struct PlacesView: View {
     @State private var safeCard: SafeCard? = nil      // сейф: задать пароль / открыть перед созданием (ТЗ §10а)
     enum SafeCard { case setup, unlock }
     @State private var open: PlaceRef? = nil
+    /// «Вещи»: тап по вещи открывает её карточку, тап по шапке места — место (02.11.2026).
+    @State private var openItem: Item? = nil
     @State private var creating = false
     @FocusState private var searching: Bool
     @State private var showWhoSees = false
@@ -34,6 +36,8 @@ struct PlacesView: View {
             (q.isEmpty || p.title.lowercased().contains(q) || p.number.lowercased().contains(q)
              || store.items(of: p.id).contains { $0.title.lowercased().contains(q) })
         }
+        // «Открыть первым» — всегда наверху (02.11.2026); внутри групп порядок прежний.
+        .enumerated().sorted { ($0.element.opensFirst ? 0 : 1, $0.offset) < ($1.element.opensFirst ? 0 : 1, $1.offset) }.map(\.element)
     }
     /// Вещи места, совпавшие с запросом, — если само место по названию/номеру не совпало (строка «Нашлось: …» под плиткой).
     private func matchedItems(in p: Place) -> [String] {
@@ -133,6 +137,7 @@ struct PlacesView: View {
             TypePickerView { kind, custom in Task { await create(kind, custom) } }
         }
         .navigationDestination(item: $open) { ref in PlaceView(store: store, placeId: ref.id) }
+        .sheet(item: $openItem) { it in ItemCardView(store: store, item: it) }
         .overlay { if creating { ProgressView().controlSize(.large) } }
         .overlay {
             if let card = safeCard {
@@ -207,31 +212,36 @@ struct PlacesView: View {
         LazyVStack(alignment: .leading, spacing: 14) {
             ForEach(filtered) { p in
                 let its = store.items(of: p.id)
-                Button { open = PlaceRef(id: p.id) } label: {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { open = PlaceRef(id: p.id) } label: {
                         HStack(spacing: 10) {
                             Image(systemName: p.kind.symbol).font(.system(size: 18, weight: .semibold))
                             Text(highlight("№ \(p.number) · \(p.displayTitle)", query)).font(.system(size: 16, weight: .bold)).lineLimit(1)
                             Spacer()
                             Text(Plural.things(its.count)).font(.footnote).foregroundStyle(Theme.muted)
+                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
                         }
-                        if its.isEmpty {
-                            Text("Пока пусто").font(.footnote).foregroundStyle(Theme.muted).padding(.leading, 28)
-                        } else {
-                            ForEach(its) { it in
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if its.isEmpty {
+                        Text("Пока пусто").font(.footnote).foregroundStyle(Theme.muted).padding(.leading, 28)
+                    } else {
+                        ForEach(its) { it in
+                            Button { openItem = it } label: {
                                 HStack(spacing: 10) {
                                     ItemThumb(item: it, size: 36)
                                     Text(highlight(it.titleWithQuantity, query)).font(.subheadline).strikethrough(it.isTaken).foregroundStyle(it.isTaken ? Theme.muted : Theme.ink)
                                     Spacer()
                                 }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
                     }
-                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
-                    .contentShape(RoundedRectangle(cornerRadius: 18))
                 }
-                .buttonStyle(.plain)
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
             }
         }
     }
