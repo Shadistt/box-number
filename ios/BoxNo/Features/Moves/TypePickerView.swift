@@ -4,6 +4,8 @@ import SwiftUI
 struct TypePickerView: View {
     var selected: PlaceKind? = nil
     var customText: String = ""
+    /// Сейф — только при создании пустого места. Смена типа существующего места сейф не предлагает (02.11.2026).
+    var allowSafe = true
     let onPick: (PlaceKind, String?) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var custom = ""
@@ -16,7 +18,7 @@ struct TypePickerView: View {
         NavigationStack {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(PlaceKind.allCases) { kind in
+                    ForEach(PlaceKind.allCases.filter { allowSafe || !$0.isSafe }) { kind in
                         Button {
                             if kind == .custom { withAnimation(.snappy) { showCustom = true }; customFocused = true }
                             else { onPick(kind, nil); dismiss() }

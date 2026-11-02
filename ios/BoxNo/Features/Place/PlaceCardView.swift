@@ -102,7 +102,7 @@ struct PlaceCardView: View {
             }
             .sheet(isPresented: $showType) {
                 if let place {
-                    TypePickerView(selected: place.kind, customText: place.customKind ?? "") { k, c in
+                    TypePickerView(selected: place.kind, customText: place.customKind ?? "", allowSafe: false) { k, c in
                         Task { try? await store.updatePlace(placeId, kind: k, customKind: .some(k == .custom ? c : nil)) }
                     }
                 }
@@ -226,13 +226,14 @@ struct PlaceCardView: View {
                 }
                 .padding(.horizontal, 16).frame(minHeight: 50)
                 Divider().padding(.leading, 16)
-                Button { if contentEditable { showType = true } } label: {
+                // Сейф создаётся пустым и навсегда остаётся сейфом: тип у него не меняется.
+                Button { if contentEditable && !isSafe { showType = true } } label: {
                     HStack(spacing: 8) {
                         Text("Тип").font(.system(size: 16)).foregroundStyle(Theme.ink)
                         Spacer()
                         Image(systemName: place.kind.symbol).foregroundStyle(Theme.ink)
                         Text(place.kindTitle).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
-                        if contentEditable { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted) }
+                        if contentEditable && !isSafe { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted) }
                     }
                     .padding(.horizontal, 16).frame(minHeight: 50).contentShape(Rectangle())
                 }
