@@ -426,9 +426,10 @@ struct InventoryBlock: View {
         HStack(spacing: 10) {
             Text(label).font(.system(size: 16)).foregroundStyle(Theme.ink)
             Spacer()
-            TextField("—", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+            TextField("0", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
                 .font(.system(size: 16, weight: .semibold)).focused($focus, equals: f).disabled(!editable)
-                .frame(maxWidth: 140)
+                .padding(.horizontal, 10).frame(width: 110, height: 34)
+                .background(editable ? Theme.bg : .clear, in: RoundedRectangle(cornerRadius: 8))
             Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 16).frame(minHeight: 50)

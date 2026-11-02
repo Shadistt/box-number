@@ -87,9 +87,10 @@ struct PlacesView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showWhoSees = true } label: { Label("Кто видит переезд", systemImage: "person.2") }
-                    if isOwner {
-                        Divider()
-                        Button(role: .destructive) { withAnimation(.snappy) { confirmDelete = true } } label: { Label("Удалить переезд", systemImage: "trash") }
+                    Divider()
+                    // Владелец удаляет переезд; участник — убирает чужой переезд из своего списка (в любом статусе, и разобранный тоже).
+                    Button(role: .destructive) { withAnimation(.snappy) { confirmDelete = true } } label: {
+                        Label(isOwner ? "Удалить переезд" : "Убрать из моего списка", systemImage: isOwner ? "trash" : "rectangle.portrait.and.arrow.right")
                     }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
@@ -99,11 +100,12 @@ struct PlacesView: View {
         .overlay {
             if confirmDelete {
                 BottomCard(isPresented: $confirmDelete) {
-                    Text("Удалить переезд?").font(.system(size: 22, weight: .heavy))
-                    Text(store.places.isEmpty ? "Переезд исчезнет из списка." : "Вместе с ним пропадут \(store.places.count.placesWord) и все их фото. Отменить будет нельзя.")
+                    Text(isOwner ? "Удалить переезд?" : "Убрать переезд из списка?").font(.system(size: 22, weight: .heavy))
+                    Text(!isOwner ? "Переезд останется у владельца, у вас пропадёт доступ к нему. Вернуть можно, только если пригласят снова."
+                         : store.places.isEmpty ? "Переезд исчезнет из списка." : "Вместе с ним пропадут \(store.places.count.placesWord) и все их фото. Отменить будет нельзя.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                     Button { Task { await deleteMove() } } label: {
-                        if deleting { ProgressView().tint(Theme.onInk) } else { Text("Удалить") }
+                        if deleting { ProgressView().tint(Theme.onInk) } else { Text(isOwner ? "Удалить" : "Убрать") }
                     }
                     .buttonStyle(PrimaryButtonStyle(fill: .red)).disabled(deleting)
                     CancelButton { withAnimation(.snappy) { confirmDelete = false } }
@@ -137,7 +139,11 @@ struct PlacesView: View {
 
     private func deleteMove() async {
         deleting = true; defer { deleting = false }
-        do { try await MovesStore.deleteMove(store.move.id); confirmDelete = false; dismiss() }
+        do {
+            if isOwner { try await MovesStore.deleteMove(store.move.id) }
+            else { try await supabase.rpc("leave_move", params: ["p_move": store.move.id]).execute(); MovesStore.clearCache() }
+            confirmDelete = false; dismiss()
+        }
         catch { store.error = "Не удалось удалить переезд: \(error.localizedDescription)" }
     }
 
@@ -284,6 +290,16 @@ struct PlaceTile: View {
                     } else if place.status == .done {
                         Image(systemName: "checkmark").font(.caption.weight(.bold)).padding(6)
                             .background(Theme.ink, in: Circle()).foregroundStyle(Theme.onInk)
+                    }
+                    // Пометки §13: «1» — открыть первым, бокал — хрупкое (оранжевые кружки, как на экране места).
+                    if place.opensFirst {
+                        Text("1").font(.system(size: 13, weight: .black, design: .rounded)).frame(width: 25, height: 25)
+                            .background(Theme.accent, in: Circle()).foregroundStyle(.white)
+                    }
+                    if place.isFragile {
+                        Image(systemName: "wineglass.fill").font(.system(size: 12, weight: .bold)).frame(width: 25, height: 25)
+                            .background(Theme.card, in: Circle()).overlay(Circle().stroke(Theme.accent, lineWidth: 1.5))
+                            .foregroundStyle(Theme.accent)
                     }
                     Spacer()
                     if let destination {

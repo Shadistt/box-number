@@ -33,7 +33,7 @@ struct BoxTileView: View {
         .overlay(alignment: .topTrailing) {
             if !editHint && (place.isFragile || place.opensFirst) {
                 HStack(spacing: 3) {
-                    if place.opensFirst { Image(systemName: "1.circle.fill") }
+                    if place.opensFirst { Text("1").font(.system(size: max(11, size * 0.1), weight: .black, design: .rounded)) }
                     if place.isFragile { Image(systemName: "wineglass.fill") }
                 }
                 .font(.system(size: max(11, size * 0.1), weight: .bold)).foregroundStyle(.white)

@@ -218,18 +218,20 @@ struct PlaceCardView: View {
                 HStack {
                     Text("Номер").font(.system(size: 16))
                     Spacer()
-                    TextField("3, 3б…", text: $number).multilineTextAlignment(.trailing)
-                        .font(.system(size: 20, weight: .black, design: .rounded))
+                    TextField("3, 3б…", text: $number).multilineTextAlignment(.center)
+                        .font(.system(size: 18, weight: .black, design: .rounded))
                         .focused($focus, equals: .number).disabled(!contentEditable).submitLabel(.done)
                         .onSubmit { focus = nil }
-                        .frame(maxWidth: 140)
+                        .padding(.horizontal, 10).frame(minWidth: 64, maxWidth: 120, minHeight: 34)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .background(contentEditable ? Theme.bg : .clear, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(.horizontal, 16).frame(minHeight: 50)
                 Divider().padding(.leading, 16)
                 // Сейф создаётся пустым и навсегда остаётся сейфом: тип у него не меняется.
                 Button { if contentEditable && !isSafe { showType = true } } label: {
                     HStack(spacing: 8) {
-                        Text("Тип").font(.system(size: 16)).foregroundStyle(Theme.ink)
+                        Text("Тип места").font(.system(size: 16)).foregroundStyle(Theme.ink)
                         Spacer()
                         Image(systemName: place.kind.symbol).foregroundStyle(Theme.ink)
                         Text(place.kindTitle).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
@@ -409,15 +411,17 @@ struct PlaceInventoryBlock: View {
         .padding(.horizontal, 16).frame(minHeight: 50)
     }
     private func unit(_ t: String) -> some View { Text(t).font(.subheadline).foregroundStyle(Theme.muted) }
+    /// Поле ввода — в серой «ячейке», как в размерах: видно, что сюда пишут, а не что тут что-то считается.
     private func numField(_ text: Binding<String>, _ f: Field, width: CGFloat) -> some View {
-        TextField("—", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+        TextField("0", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
             .font(.system(size: 16, weight: .semibold)).focused($focus, equals: f).disabled(!editable)
-            .frame(maxWidth: width)
+            .padding(.horizontal, 10).frame(width: width, height: 34)
+            .background(editable ? Theme.bg : .clear, in: RoundedRectangle(cornerRadius: 8))
     }
     private func dimField(_ text: Binding<String>, _ f: Field) -> some View {
-        TextField("—", text: text).keyboardType(.numberPad).multilineTextAlignment(.center)
+        TextField("0", text: text).keyboardType(.numberPad).multilineTextAlignment(.center)
             .font(.system(size: 15, weight: .semibold)).focused($focus, equals: f).disabled(!editable)
-            .frame(width: 44, height: 32).background(Theme.bg, in: RoundedRectangle(cornerRadius: 8))
+            .frame(width: 48, height: 34).background(editable ? Theme.bg : .clear, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func fmt(_ d: Double?) -> String { d.map { $0.formatted(.number.precision(.fractionLength(0...2)).grouping(.never)) } ?? "" }
