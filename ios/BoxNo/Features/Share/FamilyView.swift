@@ -5,6 +5,7 @@ struct FamilyView: View {
     @State private var access = AccessStore.shared
     @State private var invite = false
     @State private var confirmRemove: FamilyMember? = nil
+    @State private var selected: FamilyMember? = nil
     @State private var toast: String? = nil
 
     var body: some View {
@@ -18,25 +19,26 @@ struct FamilyView: View {
                     ForEach(Array(access.family.enumerated()), id: \.element.id) { i, m in
                         if i > 0 { Divider().padding(.leading, 68) }
                         let isMe = m.userId == access.me
-                        HStack(spacing: 12) {
-                            PersonAvatar(person: access.person(m.userId), fallback: isMe ? "Я" : String((m.invitedEmail ?? "?").prefix(1)).uppercased())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(isMe ? "Вы" : access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                                Text(isMe ? (access.person(m.userId)?.email ?? "") : m.status != "active" ? (m.createdAt.inviteExpired ? "приглашение истекло" : "приглашение отправлено \(m.createdAt.formatted(.relative(presentation: .named))) · ждём ответа") : "в семье с \(m.createdAt.formatted(.dateTime.day().month()))")
-                                    .font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
-                            }
-                            Spacer()
-                            if !isMe {
-                                if m.status != "active", m.createdAt.inviteExpired {
-                                    Button("Пригласить снова") { Task { try? await access.reinvite(kind: "family", id: m.id); await access.loadFamily() } }.font(.footnote.weight(.semibold))
-                                        .padding(.horizontal, 10).frame(height: 30).background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
-                                } else if m.status != "active" {
-                                    Button("Напомнить") { Task { await remind(m) } }.font(.footnote.weight(.semibold))
-                                        .padding(.horizontal, 10).frame(height: 30).background(Theme.fill, in: Capsule()).foregroundStyle(Theme.ink)
+                        // Вариант B (утверждён 02.11.2026): в строке — только кто и статус; права и «Убрать» — в карточке участника.
+                        Button { if !isMe { withAnimation(.snappy) { selected = m } } } label: {
+                            HStack(spacing: 12) {
+                                PersonAvatar(person: access.person(m.userId), fallback: isMe ? "Я" : String((m.invitedEmail ?? "?").prefix(1)).uppercased())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(isMe ? "Вы" : access.name(m)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                                    Text(subtitle(m, isMe: isMe)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(2)
                                 }
-                                Button { confirmRemove = m } label: { Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.muted).frame(width: 30, height: 30) }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack(spacing: 8) {
+                                    StatusPill(text: isMe ? "Владелец" : pillText(m), waiting: !isMe && m.status != "active")
+                                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Theme.muted).opacity(isMe ? 0 : 1)
+                                }
+                                .fixedSize()
                             }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 16).padding(.vertical, 10)
                     }
                 }
@@ -79,7 +81,55 @@ struct FamilyView: View {
             }
         }
         .animation(.snappy, value: toast)
+        .overlay { if let m = selected { memberCard(m) } }
         .task { await access.loadFamily() }
+    }
+
+    // MARK: карточка участника (вариант B)
+
+    private func memberCard(_ m: FamilyMember) -> some View {
+        let pending = m.status != "active"
+        return BottomCard(isPresented: .init(get: { selected != nil }, set: { if !$0 { selected = nil } })) {
+            HStack(spacing: 12) {
+                PersonAvatar(person: access.person(m.userId), fallback: String((m.invitedEmail ?? "?").prefix(1)).uppercased())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(access.name(m)).font(.system(size: 20, weight: .heavy)).lineLimit(2)
+                    Text(subtitle(m, isMe: false)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(2)
+                }
+            }
+            HStack {
+                Text("Права").font(.footnote).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(m.role == "edit" ? "Редактирует" : "Смотрит").font(.system(size: 17, weight: .semibold))
+            }
+            if pending {
+                if m.createdAt.inviteExpired {
+                    Button("Пригласить снова") { Task { try? await access.reinvite(kind: "family", id: m.id); await access.loadFamily() }; withAnimation(.snappy) { selected = nil } }
+                        .buttonStyle(PrimaryButtonStyle(fill: Theme.fill, ink: Theme.ink))
+                } else {
+                    Button("Напомнить") { Task { await remind(m) }; withAnimation(.snappy) { selected = nil } }
+                        .buttonStyle(PrimaryButtonStyle(fill: Theme.fill, ink: Theme.ink))
+                }
+            }
+            Divider()
+            Button(pending ? "Отозвать приглашение…" : "Убрать из семьи…") {
+                withAnimation(.snappy) { selected = nil }
+                confirmRemove = m
+            }
+            .buttonStyle(PrimaryButtonStyle(fill: Color.red.opacity(0.1), ink: .red))
+        }
+    }
+
+    private func subtitle(_ m: FamilyMember, isMe: Bool) -> String {
+        if isMe { return access.person(m.userId)?.email ?? "" }
+        if m.status != "active" {
+            return m.createdAt.inviteExpired ? "приглашение истекло" : "приглашение отправлено \(m.createdAt.formatted(.relative(presentation: .named)))"
+        }
+        return "в семье с \(m.createdAt.formatted(.dateTime.day().month()))"
+    }
+    private func pillText(_ m: FamilyMember) -> String {
+        if m.status != "active" { return m.createdAt.inviteExpired ? "Истекло" : "Ждёт ответа" }
+        return m.role == "edit" ? "Редактирует" : "Смотрит"
     }
 
     private func remind(_ m: FamilyMember) async {
@@ -175,5 +225,18 @@ struct InviteFamilyView: View {
         }
         if error == nil { dismiss() }
         onDone(n)
+    }
+}
+
+/// Пилюля статуса справа в строке: всегда с контуром, чтобы читалась и на выделенной строке.
+private struct StatusPill: View {
+    let text: String
+    let waiting: Bool
+    var body: some View {
+        Text(text).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            .padding(.horizontal, 10).frame(height: 26)
+            .background(waiting ? Color.orange.opacity(0.12) : Theme.card, in: Capsule())
+            .overlay(Capsule().stroke(waiting ? Color.orange.opacity(0.6) : Theme.line, lineWidth: 1))
+            .foregroundStyle(waiting ? Color.orange : Theme.ink)
     }
 }

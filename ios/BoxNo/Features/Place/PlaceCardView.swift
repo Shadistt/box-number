@@ -33,6 +33,9 @@ struct PlaceCardView: View {
 
     private var place: Place? { store.place(placeId) }
     private var isSafe: Bool { place?.kind.isSafe == true }
+    @State private var safe = SafeSession.shared
+    /// Сейф удаляется только открытым (решено 02.11.2026).
+    private var safeLocked: Bool { isSafe && !safe.isOpen }
     /// Фото, подпись, номер, тип — только у открытого места. Пометки и опись — всегда (вес меряют уже запакованным).
     private var contentEditable: Bool { canEdit && place?.status == .open }
 
@@ -51,8 +54,12 @@ struct PlaceCardView: View {
                                 .font(.footnote).foregroundStyle(Theme.muted)
                         }
                         if canEdit {
-                            Button(role: .destructive) { confirmDelete = true } label: { Label("Удалить место", systemImage: "trash") }
+                            Button(role: .destructive) { confirmDelete = true } label: { Label(isSafe ? "Удалить сейф" : "Удалить место", systemImage: "trash") }
                                 .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
+                                .disabled(safeLocked).opacity(safeLocked ? 0.5 : 1)
+                            if safeLocked {
+                                Text("Удалить сейф можно только открытым.").font(.footnote).foregroundStyle(Theme.muted)
+                            }
                         }
                     }
                     .padding(16)

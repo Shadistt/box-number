@@ -54,10 +54,18 @@ struct ItemCell: View {
                     }.padding(6)
                 }
             }
-            Text(highlight(item.titleWithQuantity, query)).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+            Text(captionText(item, query)).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                 .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
         }
     }
+}
+
+/// Подпись вещи с пометкой источника (решено 01.11.2026): автоматическая — «Подпись AI: …»,
+/// исправленная человеком — «Подпись: …» (пометка AI уходит после ручной правки). Пометка — приглушённым цветом.
+func captionText(_ item: Item, _ query: String) -> AttributedString {
+    var prefix = AttributedString(item.captionSource == .ai ? "Подпись AI: " : "Подпись: ")
+    prefix.foregroundColor = Theme.muted
+    return prefix + highlight(item.titleWithQuantity, query)
 }
 
 /// Строка вещи в режиме «Список».
@@ -73,10 +81,9 @@ struct ItemRow: View {
         HStack(spacing: 12) {
             Button(action: onTap) { ItemThumb(item: item, size: 48) }.buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
-                Text(highlight(item.titleWithQuantity, query)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                Text(captionText(item, query)).font(.system(size: 16, weight: .semibold)).lineLimit(2)
                     .foregroundStyle(item.isTaken ? Theme.muted : Theme.ink).strikethrough(item.isTaken)
                 if let t = item.takenAt { Text("Достали " + t.formatted(.dateTime.day().month())).font(.caption).foregroundStyle(Theme.muted) }
-                else if item.captionSource == .ai { Text("AI-подпись").font(.caption).foregroundStyle(Theme.muted) }
             }
             Spacer()
             if status == .open {

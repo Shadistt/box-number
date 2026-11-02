@@ -202,8 +202,9 @@ struct AccountView: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 14).frame(height: 36)
-                .background(Theme.fill, in: Capsule())
-                .foregroundStyle(Theme.ink)
+                // Отвязать — красная (с подтверждением ниже), привязать — зелёная (решено 01.11.2026).
+                .background(linked ? Color.red : Color(red: 0.08, green: 0.50, blue: 0.24), in: Capsule())
+                .foregroundStyle(.white)
             }
         }
         .padding(16)

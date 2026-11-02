@@ -75,7 +75,11 @@ struct PlaceView: View {
                         .disabled(place?.status != .open)   // у запакованной коробки направление не меняют
                     Button {} label: { Label("Отправить как посылку", systemImage: "paperplane") }.disabled(true)
                     Divider()
-                    Button(role: .destructive) { confirmDelete = true } label: { Label("Удалить место", systemImage: "trash") }
+                    // Сейф удаляется только открытым (решено 02.11.2026).
+                    Button(role: .destructive) { confirmDelete = true } label: {
+                        Label(isSafe ? (safeLocked ? "Удалить сейф — сначала откройте" : "Удалить сейф") : "Удалить место", systemImage: "trash")
+                    }
+                    .disabled(safeLocked)
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
