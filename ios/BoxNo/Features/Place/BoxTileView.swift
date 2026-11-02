@@ -26,7 +26,8 @@ struct BoxTileView: View {
                             .background(packed ? Theme.dark : Theme.card, in: Capsule())
                             .foregroundStyle(packed ? Theme.onInk : Theme.ink).padding(6)
                     }
-            } else if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) } else { other }
+            } else if place.kind == .box { Box3DView(number: place.number, openness: packed ? 0 : 1, size: size) }
+            else if place.kind.isSafe { LiveSafe3DView(number: place.number, size: size) } else { other }
         }
         .frame(width: size, height: size)
         // Пометки §13 в сетке: бейдж в правом верхнем углу (на экране места они чипами в шапке).

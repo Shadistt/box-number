@@ -297,6 +297,9 @@ struct PlaceTile: View {
                 } else if place.kind == .box {
                     Box3DView(number: place.number, openness: place.status == .packed ? 0 : 1, size: 120)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if place.kind.isSafe {
+                    // 3D-сейф: номер на дверце, диск крутится и дверца открывается, когда сейф открыли
+                    LiveSafe3DView(number: place.number, size: 120).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     VStack {
                         KindIcon(kind: place.kind, size: 26, weight: .medium)
