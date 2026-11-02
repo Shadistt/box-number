@@ -243,6 +243,9 @@ struct PlaceCardView: View {
             }
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
             if let numberError { Text(numberError).font(.footnote).foregroundStyle(.red).padding(.horizontal, 4) }
+            if isSafe {
+                Text("Сейф нельзя сменить на другой тип").font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            }
         }
     }
 

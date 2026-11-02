@@ -35,7 +35,8 @@ struct MovesListView: View {
                             // Тап — настоящая кнопка; «зажать и тянуть» — UIKit-распознаватель на ScrollView (ListLongPress ниже),
                             // без SwiftUI-жестов на карточке: они ломали прокрутку или тап (релизы 41–43).
                             Button { if dragging == nil && !justDropped { openMove = m } } label: {
-                                MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0)
+                                MoveCard(move: m, destinations: store.destinations[m.id] ?? [], places: store.placesCount[m.id] ?? 0,
+                                         people: store.people[m.id] ?? [], myRole: store.myRole[m.id])
                             }
                                 .buttonStyle(.plain)
                                 .background(GeometryReader { g in Color.clear.preference(key: CardFrameKey.self, value: [m.id: g.frame(in: .global)]) })
@@ -176,6 +177,13 @@ struct MoveCard: View {
     let move: Move
     let destinations: [MoveDestination]
     let places: Int
+    var people: [MovePerson] = []
+    var myRole: String? = nil
+
+    /// Владелец чужого переезда (если переезд открыт мне); nil — переезд мой.
+    private var owner: MovePerson? { people.first { $0.isOwner } }
+    /// На моём переезде — те, кому он открыт.
+    private var members: [MovePerson] { owner == nil ? people : [] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -184,6 +192,19 @@ struct MoveCard: View {
                 Text("идёт").font(.caption.weight(.bold)).padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Theme.accent, in: Capsule()).foregroundStyle(Theme.ink)
                 Spacer()
+                if !members.isEmpty {
+                    // Мой переезд открыт другим: стопка аватарок до трёх + «+N» (как у общих мест).
+                    HStack(spacing: -8) {
+                        ForEach(members.prefix(3), id: \.userId) { p in
+                            PersonAvatar(person: p.person, size: 28).overlay(Circle().stroke(Theme.dark, lineWidth: 2))
+                        }
+                        if members.count > 3 {
+                            Text("+\(members.count - 3)").font(.system(size: 11, weight: .heavy)).frame(width: 28, height: 28)
+                                .background(Color(white: 0.33), in: Circle()).overlay(Circle().stroke(Theme.dark, lineWidth: 2))
+                        }
+                    }
+                    .accessibilityLabel("Переезд видят: " + members.map(\.person.name).joined(separator: ", "))
+                }
             }
             Text("\(places.placesWord) · с \(move.createdAt.formatted(.dateTime.day().month(.wide)))")
                 .font(.subheadline).foregroundStyle(.white.opacity(0.7))
@@ -201,6 +222,19 @@ struct MoveCard: View {
                             .padding(.horizontal, 10).padding(.vertical, 6)
                             .background(.white.opacity(0.12), in: Capsule())
                             .layoutPriority(2)
+                    }
+                }
+            }
+            if let owner {
+                // Чужой переезд: кто делится и моя роль.
+                Divider().overlay(.white.opacity(0.12))
+                HStack(spacing: 8) {
+                    PersonAvatar(person: owner.person, size: 24)
+                    Text("Делится \(owner.person.name)").font(.subheadline).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
+                    Spacer()
+                    if let myRole {
+                        Text(myRole == "edit" ? "Редактируете" : "Смотрите").font(.caption.weight(.bold))
+                            .padding(.horizontal, 8).padding(.vertical, 4).background(.white.opacity(0.14), in: Capsule())
                     }
                 }
             }
