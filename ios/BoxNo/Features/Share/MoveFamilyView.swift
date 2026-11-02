@@ -162,8 +162,8 @@ struct MoveFamilyView: View {
 }
 
 
-/// «Кто видит переезд» для участника чужого переезда (02.11.2026): только просмотр — владелец, я, остальные участники.
-/// Доступом управляет владелец; моя семья тут ни при чём, поэтому её список не показываем.
+/// «Мой доступ» в чужом переезде (02.11.2026): только владелец и моя роль. Кто ещё в переезде — личное дело
+/// владельца, участникам не показываем (и сервер их не отдаёт).
 struct MoveParticipantsView: View {
     let move: Move
     var destinations: [MoveDestination] = []
@@ -175,7 +175,6 @@ struct MoveParticipantsView: View {
     @State private var loaded = false
 
     private var owner: MovePerson? { people.first { $0.isOwner } }
-    private var others: [MovePerson] { people.filter { !$0.isOwner } }
 
     var body: some View {
         NavigationStack {
@@ -183,7 +182,7 @@ struct MoveParticipantsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("\(move.displayTitle(destinations: destinations)) · \(Plural.places(placesCount)).")
                         .font(.subheadline).foregroundStyle(Theme.muted).padding(.horizontal, 4)
-                    SectionTitle(loaded ? "В переезде · \(people.count + 1)" : "В переезде")
+                    SectionTitle("Доступ")
                     SettingsCard {
                         if !loaded {
                             ProgressView().frame(maxWidth: .infinity).padding(20)
@@ -199,13 +198,9 @@ struct MoveParticipantsView: View {
                                 Spacer()
                             }
                             .padding(.horizontal, 16).padding(.vertical, 10)
-                            ForEach(others, id: \.userId) { p in
-                                Divider().padding(.leading, 68)
-                                row(p.person, subtitle: p.role == "edit" ? "видит и редактирует" : "только смотрит", badge: nil)
-                            }
                         }
                     }
-                    Text("Кто видит переезд, решает владелец\(owner.map { " — \($0.person.name)" } ?? ""). Если переезд вам больше не нужен, уберите его из своего списка — у владельца он останется.")
+                    Text("Переездом с вами поделился владелец\(owner.map { " — \($0.person.name)" } ?? ""). Доступом управляет он. Если переезд вам больше не нужен, уберите его из своего списка — у владельца он останется.")
                         .font(.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
                     Button(role: .destructive) { onLeave() } label: { Label("Убрать из моего списка", systemImage: "rectangle.portrait.and.arrow.right") }
                         .buttonStyle(PrimaryButtonStyle(fill: Theme.card, ink: .red))
@@ -213,7 +208,7 @@ struct MoveParticipantsView: View {
                 .padding(16)
             }
             .background(Theme.bg)
-            .navigationTitle("Кто видит переезд").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Мой доступ").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Закрыть") { dismiss() } } }
             .task {
                 if let rows: [MovePerson] = try? await supabase.rpc("move_people").execute().value {

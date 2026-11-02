@@ -86,7 +86,10 @@ struct PlacesView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { showWhoSees = true } label: { Label("Кто видит переезд", systemImage: "person.2") }
+                    Button { showWhoSees = true } label: {
+                        // Участнику чужого переезда — только его собственный доступ, не список всех.
+                        Label(isOwner ? "Кто видит переезд" : "Мой доступ", systemImage: isOwner ? "person.2" : "person.badge.key")
+                    }
                     Divider()
                     // Владелец удаляет переезд; участник — убирает чужой переезд из своего списка (в любом статусе, и разобранный тоже).
                     Button(role: .destructive) { withAnimation(.snappy) { confirmDelete = true } } label: {
