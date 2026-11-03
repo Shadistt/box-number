@@ -14,6 +14,7 @@ struct NewMoveView: View {
     @State private var dragging: UUID?
     @State private var dragOffset: CGFloat = 0
     @FocusState private var focusedDest: UUID?
+    @FocusState private var fromFocused: Bool
     private let rowStep: CGFloat = 58 + 8
 
     struct Dest: Identifiable { let id = UUID(); var text = "" }
@@ -85,6 +86,7 @@ struct NewMoveView: View {
             TextField("Город и/или адрес", text: binding).focused($focusedDest, equals: d.id)
                 .font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
                 .autocorrectionDisabled().textInputAutocapitalization(.words)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if dests.count > 1 {
                 Button { withAnimation(.snappy) { dests.removeAll { $0.id == d.id } } } label: {
                     Image(systemName: "minus").font(.system(size: 13, weight: .heavy)).foregroundStyle(Theme.ink)
@@ -98,6 +100,8 @@ struct NewMoveView: View {
         }
         .padding(.leading, 16).padding(.trailing, 8).frame(height: 58)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { focusedDest = d.id }   // тап по «Куда» или пустому месту — курсор в поле
         .scaleEffect(lifted ? 1.03 : 1)
         .shadow(color: .black.opacity(lifted ? 0.18 : 0), radius: lifted ? 14 : 0, y: lifted ? 6 : 0)
         .offset(y: lifted ? dragOffset : shift(i))
@@ -147,10 +151,14 @@ struct NewMoveView: View {
         HStack(spacing: 12) {
             Text(label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 64, alignment: .leading)
             TextField("Город и/или адрес", text: text).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.ink)
-                .autocorrectionDisabled().textInputAutocapitalization(.words)
+                .autocorrectionDisabled().textInputAutocapitalization(.words).focused($fromFocused)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 16).frame(height: 58)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        // Тап по подписи «Откуда» или по пустому месту справа — курсор в поле (отзыв 03.11)
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { fromFocused = true }
     }
 
     private func create() async {

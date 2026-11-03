@@ -45,12 +45,13 @@ struct HomeView: View {
                         } label: {
                             Text(t.rawValue).font(.subheadline.weight(.bold))
                                 .frame(maxWidth: .infinity, minHeight: 36)
-                                .background(tab == t ? Theme.card : .clear, in: RoundedRectangle(cornerRadius: 10))
+                                .background(tab == t ? Theme.segActive : .clear, in: RoundedRectangle(cornerRadius: 10))
                         }
                         .foregroundStyle(active ? Theme.ink : Theme.muted.opacity(0.5))
                     }
                 }
-                .padding(4).background(Theme.fill, in: RoundedRectangle(cornerRadius: 13))
+                .padding(4).background(Theme.segTrack, in: RoundedRectangle(cornerRadius: 13))
+                .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.line, lineWidth: 1))   // контур виден и в тёмной теме
             }
     }
 }

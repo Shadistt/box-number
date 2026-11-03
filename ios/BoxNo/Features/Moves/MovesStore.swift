@@ -39,7 +39,11 @@ final class MovesStore {
             await loadPeople()
             loaded = true
             saveCache()
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            // Отменённая загрузка (ушли с экрана, потянули обновить ещё раз) — не ошибка, окно не показываем.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
+            self.error = error.localizedDescription
+        }
     }
 
     /// Аватарки на карточках. Ошибка тут не ломает главный экран — просто без аватарок.

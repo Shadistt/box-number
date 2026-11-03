@@ -318,11 +318,11 @@ struct PlaceTile: View {
                     }
                     // Пометки §13: «1» — открыть первым, бокал — хрупкое (оранжевые кружки, как на экране места).
                     if place.opensFirst {
-                        Text("1").font(.system(size: 13, weight: .black, design: .rounded)).frame(width: 25, height: 25)
+                        Text("1").font(.system(size: 16, weight: .black, design: .rounded)).frame(width: 30, height: 30)
                             .background(Theme.accent, in: Circle()).foregroundStyle(.white)
                     }
                     if place.isFragile {
-                        Image(systemName: "wineglass.fill").font(.system(size: 12, weight: .bold)).frame(width: 25, height: 25)
+                        Image(systemName: "wineglass.fill").font(.system(size: 16, weight: .bold)).frame(width: 30, height: 30)
                             .background(Theme.card, in: Circle()).overlay(Circle().stroke(Theme.accent, lineWidth: 1.5))
                             .foregroundStyle(Theme.accent)
                     }

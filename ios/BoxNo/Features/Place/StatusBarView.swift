@@ -53,7 +53,7 @@ struct StatusBarView: View {
                             .font(.system(size: 18, weight: .bold))
                             .frame(width: 44, height: 44)
                             .background(packed || allTaken ? Theme.accent : Theme.ink, in: Circle())
-                            .foregroundStyle(packed || allTaken ? Theme.dark : .white)
+                            .foregroundStyle(packed || allTaken ? Theme.dark : Theme.onInk)   // на светлой заливке в тёмной теме — тёмный значок
                     }
                     .accessibilityLabel(done ? "Вернуть в распаковку" : (allTaken ? "Коробка разобрана" : (packed ? "Распаковать" : "Запаковать")))
                     .transition(.scale.combined(with: .opacity))

@@ -48,7 +48,11 @@ final class PlacesStore {
                 .eq("move_id", value: move.id.uuidString).is("deleted_at", value: nil)
                 .order("position").execute().value
             loaded = true
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            // Отменённая загрузка (ушли с экрана, потянули обновить ещё раз) — не ошибка, окно не показываем.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
+            self.error = error.localizedDescription
+        }
     }
 
     // MARK: места

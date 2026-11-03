@@ -16,6 +16,11 @@ enum Theme {
     static let dark = Color(hex: 0x16171A)          // всегда тёмное: плашка «запаковано»
     /// Карточка переезда: в светлой теме — тёмная, в тёмной — заметно светлее фона (иначе сливалась, 31.10 отзыв).
     static let moveCard = dyn(0x16171A, 0x2A2B31)
+    /// Поле ввода: в тёмной теме — как в системных формах iOS (#2C2C2E), а не светлое (отзыв 03.11).
+    static let field = dyn(0xF1F0EC, 0x2C2C2E)
+    /// Сегменты на главном: дорожка и активный сегмент; в тёмной активный светлее дорожки + тонкий контур.
+    static let segTrack = dyn(0xE4E2DC, 0x232428)
+    static let segActive = dyn(0xFFFFFF, 0x48494F)
     static let radius: CGFloat = 16
 
     private static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {

@@ -53,12 +53,13 @@ struct ItemCell: View {
                                 .padding(.horizontal, 6).frame(height: 18).background(Theme.accent, in: Capsule()).padding(5)
                         }
                     }
-                if status == .open {
+                // Вещь отмечена «достал(а)», а место снова открыли — показываем «Вернуть», а не минус (отзыв 03.11).
+                if status == .open && !item.isTaken {
                     TwoStepDelete(onDelete: onMinus) { armed in
                         Image(systemName: armed ? "trash.fill" : "minus").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
                             .frame(width: 26, height: 26).background(armed ? Color.red : .black.opacity(0.55), in: Circle())
                     }.padding(6)
-                } else if status == .unpacking {
+                } else if status == .unpacking || (status == .open && item.isTaken) {
                     Button(action: onTake) {
                         Text(item.isTaken ? "Вернуть" : "Достал(а)").font(.system(size: 12, weight: .bold))
                             .padding(.horizontal, 10).frame(height: 28)
@@ -91,11 +92,11 @@ struct ItemRow: View {
                 else if item.captionSource == .ai { Text("AI-подпись").font(.caption).foregroundStyle(Theme.muted) }
             }
             Spacer()
-            if status == .open {
+            if status == .open && !item.isTaken {
                 TwoStepDelete(onDelete: onMinus) { armed in
                     Image(systemName: armed ? "trash.circle.fill" : "minus.circle").font(.title3).foregroundStyle(armed ? .red : Theme.muted)
                 }
-            } else if status == .unpacking {
+            } else if status == .unpacking || (status == .open && item.isTaken) {
                 Button(action: onTake) {
                     Text(item.isTaken ? "Вернуть" : "Достал(а)").font(.system(size: 13, weight: .bold))
                         .padding(.horizontal, 12).frame(height: 32)

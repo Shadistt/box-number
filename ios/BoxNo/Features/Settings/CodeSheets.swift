@@ -77,7 +77,7 @@ struct PasswordCard: View {
                  : "После этого войти можно будет по email и паролю, а Apple или Google — отвязать, если захотите.")
                 .font(.subheadline).foregroundStyle(Theme.muted)
             if hasPassword {
-                SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle().colorScheme(.light)
+                SecureField("Текущий пароль", text: $current).textContentType(.password).fieldStyle()
             }
             // Поля пароля всегда в светлой схеме: автозаполнение iOS красит поле жёлтым, и в тёмной теме светлый текст пропадал.
             Group {
@@ -85,13 +85,13 @@ struct PasswordCard: View {
                 else { SecureField("Новый пароль, не короче 8 символов", text: $new) }
             }
             .textContentType(.newPassword).autocorrectionDisabled().textInputAutocapitalization(.never)
-            .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+            .padding(.trailing, 34).fieldStyle()
             // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
             .overlay(alignment: .trailing) {
                 Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }
                     .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
             }
-            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle().colorScheme(.light)
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.newPassword).fieldStyle()
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
             if !hasPassword {
                 Text("Подтвердим кодом на \(email) — iPhone подставит его сам.").font(.footnote).foregroundStyle(Theme.muted)
@@ -221,6 +221,6 @@ struct CancelButton: View {
 extension View {
     func fieldStyle() -> some View {
         self.font(.system(size: 17)).padding(.horizontal, 14).frame(height: 52)
-            .background(Theme.bg, in: RoundedRectangle(cornerRadius: 14))
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 14))
     }
 }

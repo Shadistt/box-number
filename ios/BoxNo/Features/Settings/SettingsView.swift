@@ -97,7 +97,9 @@ struct SettingsView: View {
         }
         .tint(Theme.ink)
         // Настройки — отдельная презентация: тему задаём и ей, иначе «Тема» оставалась в старых цветах до закрытия.
-        .preferredColorScheme((AppTheme(rawValue: theme) ?? .system).scheme)
+        // «Как в системе»: nil не возвращает уже открытый лист к системной теме — подставляем тему экрана iPhone явно.
+        .preferredColorScheme((AppTheme(rawValue: theme) ?? .system).scheme
+                              ?? (UIScreen.main.traitCollection.userInterfaceStyle == .dark ? .dark : .light))
     }
 
     private var pendingValue: String? {

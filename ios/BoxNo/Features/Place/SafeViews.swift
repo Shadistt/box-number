@@ -27,13 +27,13 @@ struct SafeSetupCard: View {
                 else { SecureField("Пароль, не короче 6 символов", text: $password) }
             }
             .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never)
-            .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+            .padding(.trailing, 34).fieldStyle()
             // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
             .overlay(alignment: .trailing) {
                 Button { show.toggle() } label: { Image(systemName: show ? "eye" : "eye.slash") }
                     .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
             }
-        SecureField("Ещё раз", text: $repeatPassword).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
+        SecureField("Ещё раз", text: $repeatPassword).textContentType(.oneTimeCode).fieldStyle()
         if !repeatPassword.isEmpty, repeatPassword != password { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
         if safe.biometryAvailable {
             Toggle(isOn: $useBiometry) {
@@ -75,7 +75,7 @@ struct SafeUnlockCard: View {
     var body: some View {
         Text("Сейф закрыт").font(.system(size: 22, weight: .heavy))
         Text("Введите пароль сейфа. Он закрывается сам, когда вы уходите из приложения.").font(.subheadline).foregroundStyle(Theme.muted)
-        SecureField("Пароль сейфа", text: $password).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
+        SecureField("Пароль сейфа", text: $password).textContentType(.oneTimeCode).fieldStyle()
             .focused($focused).submitLabel(.go).onSubmit { Task { await open() } }
         if let error { Text(error).font(.footnote).foregroundStyle(.red) }
         Button { Task { await open() } } label: {
@@ -150,19 +150,19 @@ struct SafePasswordChangeCard: View {
             Text("Сменить пароль сейфа").font(.system(size: 22, weight: .heavy))
             Text("Нужен текущий пароль. Если вы его забыли — сменить нельзя: без него содержимое сейфа не расшифровать.")
                 .font(.subheadline).foregroundStyle(Theme.muted)
-            SecureField("Текущий пароль сейфа", text: $current).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
+            SecureField("Текущий пароль сейфа", text: $current).textContentType(.oneTimeCode).fieldStyle()
             Group {
                     if showNew { TextField("Новый пароль, не короче 6 символов", text: $new) }
                     else { SecureField("Новый пароль, не короче 6 символов", text: $new) }
                 }
                 .textContentType(.oneTimeCode).autocorrectionDisabled().textInputAutocapitalization(.never)
-                .padding(.trailing, 34).fieldStyle().colorScheme(.light)
+                .padding(.trailing, 34).fieldStyle()
                 // Глаз — внутри поля (02.11.2026), а не отдельной кнопкой справа.
                 .overlay(alignment: .trailing) {
                     Button { showNew.toggle() } label: { Image(systemName: showNew ? "eye" : "eye.slash") }
                         .foregroundStyle(Theme.muted).frame(width: 44, height: 52)
                 }
-            SecureField("Ещё раз", text: $repeatNew).textContentType(.oneTimeCode).fieldStyle().colorScheme(.light)
+            SecureField("Ещё раз", text: $repeatNew).textContentType(.oneTimeCode).fieldStyle()
             if !repeatNew.isEmpty, repeatNew != new { Text("Пароли не совпадают").font(.footnote).foregroundStyle(.red) }
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
             Button { Task { await submit() } } label: {
