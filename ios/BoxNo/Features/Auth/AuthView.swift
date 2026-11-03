@@ -70,7 +70,14 @@ struct AuthView: View {
               let token = String(data: tokenData, encoding: .utf8) else { error = "Apple не вернул токен"; return }
         busy = true; defer { busy = false }
         do {
-            try await supabase.auth.signInWithIdToken(credentials: .init(provider: .apple, idToken: token, nonce: appleNonce))
+            let session = try await supabase.auth.signInWithIdToken(credentials: .init(provider: .apple, idToken: token, nonce: appleNonce))
+            // Apple отдаёт имя только при первом входе и не кладёт его в токен — сохраняем сами, если в профиле пусто (03.11.2026).
+            let first = cred.fullName?.givenName ?? "", last = cred.fullName?.familyName ?? ""
+            if !first.isEmpty || !last.isEmpty {
+                _ = try? await supabase.from("profiles").update(["first_name": first, "last_name": last])
+                    .eq("id", value: session.user.id).eq("first_name", value: "").eq("last_name", value: "").execute()
+                await ProfileStore.shared.load()
+            }
         } catch { self.error = "Apple: \(error.localizedDescription)" }
     }
 
