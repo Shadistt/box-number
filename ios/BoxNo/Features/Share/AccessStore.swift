@@ -290,7 +290,19 @@ struct PersonAvatar: View {
     let person: Person?
     var fallback: String = "?"
     var size: CGFloat = 40
-    @State private var image: UIImage? = nil
+    @State private var image: UIImage?
+    /// Фото держим в памяти по ключу R2: при каждом входе в экран не ходим за ссылкой заново (аватарка «зависала» на букве).
+    private static let cache = NSCache<NSString, UIImage>()
+    init(person: Person?, fallback: String = "?", size: CGFloat = 40) {
+        self.person = person; self.fallback = fallback; self.size = size
+        _image = State(initialValue: Self.cached(person?.photo))
+    }
+    /// Своё фото уже лежит в профиле (и на диске) — берём оттуда, остальные — из кэша.
+    private static func cached(_ key: String?) -> UIImage? {
+        guard let key else { return nil }
+        if key == ProfileStore.shared.profile?.photo, let mine = ProfileStore.shared.avatarImage { return mine }
+        return cache.object(forKey: key as NSString)
+    }
     private static let colors: [Color] = [Theme.accent, Color(hex: 0x3B4D74), Color(hex: 0x4D5F4A), Color(hex: 0x8C6BB1), Color(hex: 0xC9A27A)]
 
     var body: some View {
@@ -305,9 +317,12 @@ struct PersonAvatar: View {
         .frame(width: size, height: size).clipShape(Circle())
         .task(id: person?.photo) {
             guard let p = person, let key = p.photo else { image = nil; return }
+            if let hit = Self.cached(key) { image = hit; return }
             struct Ticket: Decodable { let url: String }
             if let t: Ticket = try? await supabase.functions.invoke("avatar-url", options: .init(body: ["op": "get", "key": key])),
-               let (d, _) = try? await URLSession.shared.data(from: URL(string: t.url)!) { image = UIImage(data: d) }
+               let (d, _) = try? await URLSession.shared.data(from: URL(string: t.url)!), let img = UIImage(data: d) {
+                Self.cache.setObject(img, forKey: key as NSString); image = img
+            }
         }
     }
 }

@@ -101,6 +101,8 @@ struct AccountView: View {
         .background(Theme.bg)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Аккаунт").navigationBarTitleDisplayMode(.inline)
+        // Высокие карточки (пароль, пароль сейфа) накрывают экран целиком: системная шапка с «назад» иначе торчит над ними.
+        .toolbar(passwordCard || safePasswordCard ? .hidden : .automatic, for: .navigationBar)
         .onAppear {
             first = store.profile?.firstName ?? ""; last = store.profile?.lastName ?? ""
             carouselId = store.profile?.hasCustomAvatar == true ? "photo" : AvatarPreset.named(store.profile?.avatar ?? "").id
